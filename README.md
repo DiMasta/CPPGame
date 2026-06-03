@@ -89,6 +89,26 @@ After deploying, share the `.web.app` URL with your students — it works on any
 > **Tip:** `firebase deploy --only hosting` re-publishes just the website;
 > `firebase deploy --only firestore:rules` re-publishes just the database rules.
 
+### Automatic deploys (already set up)
+
+This repo auto-deploys on every push to `main` via GitHub Actions
+([`.github/workflows/firebase-deploy.yml`](.github/workflows/firebase-deploy.yml)).
+
+```
+edit code  →  git push to main  →  GitHub Actions deploys  →  https://dcsa-cpp-game.web.app
+```
+
+So the normal workflow is just: **commit and push.** No manual `firebase deploy` needed.
+
+How it's wired: a Firebase CI token (from `firebase login:ci`) is stored as a
+GitHub repository secret named **`FIREBASE_TOKEN`** (Settings → Secrets and
+variables → Actions). The workflow reads it to authenticate the deploy. If you
+ever rotate the token, regenerate it and update that secret.
+
+You can still deploy by hand anytime with `firebase deploy --only hosting`, and
+you can trigger the workflow manually from the repo's **Actions** tab
+(**Run workflow**).
+
 ---
 
 ## How the data works
