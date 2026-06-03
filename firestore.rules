@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Players collection — one document per signed-in user (keyed by their uid).
+    match /players/{userId} {
+
+      // Anyone signed in can read the leaderboard.
+      allow read: if request.auth != null;
+
+      // A user may only create / update their OWN document.
+      // They may NOT set their own points from the client — points are 0 on
+      // create, and only an admin / server (Cloud Function or console) can
+      // award points later. This stops students from cheating their score.
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.points == 0;
+
+      // Allow the user to update their own profile (e.g. change nickname),
+      // but the points value must stay exactly what it already was.
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.points == resource.data.points;
+
+      allow delete: if false;
+    }
+  }
+}
