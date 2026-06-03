@@ -1,0 +1,25 @@
+name: Deploy to Firebase Hosting
+
+# Auto-deploy the site whenever code is pushed to the main branch.
+on:
+  push:
+    branches: [main]
+  # Lets you also trigger a deploy by hand from the Actions tab.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Firebase Hosting
+        run: npx --yes firebase-tools@latest deploy --only hosting --project dcsa-cpp-game --non-interactive
+        env:
+          # Token is read automatically by the Firebase CLI from this env var.
+          # Stored as a repository secret in GitHub (see README / setup steps).
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

@@ -1,0 +1,12 @@
+# Firebase CLI local cache / logs (not needed in the repo)
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Node
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
