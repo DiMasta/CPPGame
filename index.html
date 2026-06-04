@@ -75,11 +75,8 @@
       <section id="view-leaderboard" class="view hidden">
         <button id="enterArenaBtn" class="btn-arena" type="button">
           <span class="btn-arena-emoji" aria-hidden="true">⚔️</span>
-          <span class="btn-arena-text">
-            <span class="btn-arena-title">Enter the Arena</span>
-            <span class="btn-arena-sub">Answer C++ quiz questions · +1 point each</span>
-          </span>
-          <span class="btn-arena-arrow" aria-hidden="true">→</span>
+          <span class="btn-arena-title">Enter Arena</span>
+          <span class="btn-arena-emoji" aria-hidden="true">⚔️</span>
         </button>
         <div class="card">
           <div class="card-head">
@@ -109,14 +106,15 @@
         <div class="card">
           <div class="card-head">
             <h2>📝 What does this program print?</h2>
-            <span class="pill">Score: <span id="arenaScore">0</span></span>
+            <span class="pill score-chip" id="arenaScoreChip">Score: <span id="arenaScore">0</span></span>
           </div>
-          <pre id="quizCode" class="code-block" aria-label="C++ code"></pre>
-          <div id="quizAnswers" class="answers-grid">
-            <!-- answer buttons injected by app.js -->
+          <div class="quiz-slide" id="quizSlide">
+            <pre id="quizCode" class="code-block" aria-label="C++ code"></pre>
+            <div id="quizAnswers" class="answers-grid">
+              <!-- answer buttons injected by app.js -->
+            </div>
+            <div id="quizFeedback" class="feedback hidden" role="status"></div>
           </div>
-          <div id="quizFeedback" class="feedback hidden" role="status"></div>
-          <button id="quizNextBtn" class="btn-primary hidden" type="button">Next question →</button>
         </div>
       </section>
 

@@ -556,9 +556,10 @@ tr.is-you:hover td {
 .btn-arena {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
-  padding: 18px 22px;
+  min-height: 64px;
+  padding: 14px 18px;
   margin-bottom: 16px;
   background: linear-gradient(135deg, var(--primary) 0%, var(--accent-blue) 100%);
   color: #ffffff;
@@ -568,9 +569,10 @@ tr.is-you:hover td {
   cursor: pointer;
   text-align: left;
   box-shadow: 0 10px 28px var(--primary-glow), 0 1px 0 rgba(255, 255, 255, 0.12) inset;
-  transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  transition: filter 0.18s ease, box-shadow 0.2s ease, transform 0.08s ease;
   position: relative;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 .btn-arena::before {
   content: "";
@@ -579,36 +581,30 @@ tr.is-you:hover td {
   background: radial-gradient(400px 100px at 80% 50%, rgba(255, 255, 255, 0.15), transparent 70%);
   pointer-events: none;
 }
-.btn-arena:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.06);
-  box-shadow: 0 14px 36px var(--primary-glow), 0 1px 0 rgba(255, 255, 255, 0.18) inset;
+@media (hover: hover) {
+  .btn-arena:hover {
+    filter: brightness(1.06);
+    box-shadow: 0 14px 36px var(--primary-glow), 0 1px 0 rgba(255, 255, 255, 0.18) inset;
+  }
 }
-.btn-arena:active { transform: translateY(0); }
+.btn-arena:active { transform: scale(0.99); filter: brightness(0.96); }
 .btn-arena-emoji {
-  font-size: 30px;
+  font-size: 28px;
   line-height: 1;
+  flex-shrink: 0;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
 }
-.btn-arena-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .btn-arena-title {
+  flex: 1;
+  min-width: 0;
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.01em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.btn-arena-sub {
-  font-size: 12px;
-  font-weight: 500;
-  opacity: 0.88;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-}
-.btn-arena-arrow {
-  font-size: 22px;
-  font-weight: 700;
-  opacity: 0.9;
-  transition: transform 0.2s ease;
-}
-.btn-arena:hover .btn-arena-arrow { transform: translateX(4px); }
 
 /* =========================== Code block (VS) ========================== */
 .code-block {
@@ -659,12 +655,21 @@ tr.is-you:hover td {
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.08s;
 }
-.answer-btn:hover:not(:disabled) {
-  background: rgba(163, 113, 247, 0.08);
-  border-color: var(--border-hover);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .answer-btn:hover:not(:disabled):not(.incorrect):not(.correct) {
+    background: rgba(163, 113, 247, 0.08);
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+  }
+}
+.answer-btn:active:not(:disabled):not(.incorrect):not(.correct) {
+  transform: scale(0.99);
 }
 .answer-btn:disabled { cursor: default; }
+.answer-btn { -webkit-tap-highlight-color: transparent; }
+
+/* Quiz slide container — TikTok-style vertical slide between questions. */
+.quiz-slide { transform-origin: center; }
 .answer-btn-label {
   display: inline-flex;
   align-items: center;
@@ -685,28 +690,39 @@ tr.is-you:hover td {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #ce9178; /* String literal color — these ARE C++ strings. */
+  color: var(--text);
 }
-.answer-btn-text::before { content: '"'; opacity: 0.55; }
-.answer-btn-text::after  { content: '"'; opacity: 0.55; }
-.answer-btn.correct {
-  background: rgba(86, 211, 100, 0.10);
-  border-color: rgba(86, 211, 100, 0.50);
+/* Correct: vivid green fill so it pops before the auto-advance. */
+.answer-btn.correct,
+.answer-btn.correct:disabled {
+  background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%);
+  border-color: #56d364;
+  color: #ffffff;
+  box-shadow: 0 0 24px rgba(86, 211, 100, 0.45);
 }
+.answer-btn.correct .answer-btn-text { color: #ffffff; }
 .answer-btn.correct .answer-btn-label {
-  background: rgba(86, 211, 100, 0.22);
-  color: var(--success);
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
-.answer-btn.incorrect {
-  background: rgba(255, 123, 114, 0.10);
-  border-color: rgba(255, 123, 114, 0.50);
+/* Wrong: vivid red fill on the chosen button only — others stay clickable. */
+.answer-btn.incorrect,
+.answer-btn.incorrect:disabled {
+  background: linear-gradient(135deg, #b62324 0%, #da3633 100%);
+  border-color: #ff7b72;
+  color: #ffffff;
+  box-shadow: 0 0 18px rgba(255, 123, 114, 0.35);
+  cursor: not-allowed;
 }
+.answer-btn.incorrect .answer-btn-text { color: #ffffff; }
 .answer-btn.incorrect .answer-btn-label {
-  background: rgba(255, 123, 114, 0.22);
-  color: var(--danger);
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
 /* ============================== Feedback ============================== */
+/* Only shown on error states (e.g. Firestore write failure). The "Correct!"
+   feedback now lives on the score chip itself. */
 .feedback {
   display: flex;
   align-items: center;
@@ -718,15 +734,52 @@ tr.is-you:hover td {
   margin-bottom: 14px;
   border: 1px solid transparent;
 }
-.feedback.ok {
-  background: rgba(86, 211, 100, 0.10);
-  border-color: rgba(86, 211, 100, 0.40);
-  color: var(--success);
-}
 .feedback.bad {
   background: rgba(255, 123, 114, 0.10);
   border-color: rgba(255, 123, 114, 0.40);
   color: var(--danger);
+}
+
+/* ========================= Score chip + flash ========================= */
+.score-chip {
+  position: relative;
+  transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease;
+}
+.score-chip.score-flash {
+  background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%);
+  border-color: #56d364;
+  color: #ffffff;
+  box-shadow: 0 0 18px rgba(86, 211, 100, 0.55);
+  animation: scoreFlashPulse 1.2s ease;
+}
+@keyframes scoreFlashPulse {
+  0%   { transform: scale(1); }
+  18%  { transform: scale(1.10); }
+  40%  { transform: scale(1); }
+}
+
+.score-pop {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  transform: translate(-50%, 0);
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: #56d364;
+  text-shadow:
+    0 0 10px rgba(86, 211, 100, 0.85),
+    0 2px 4px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  letter-spacing: -0.02em;
+  animation: scorePopUp 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  white-space: nowrap;
+}
+@keyframes scorePopUp {
+  0%   { transform: translate(-50%, 4px)   scale(0.6); opacity: 0; }
+  18%  { transform: translate(-50%, -10px) scale(1.25); opacity: 1; }
+  60%  { transform: translate(-50%, -22px) scale(1);    opacity: 1; }
+  100% { transform: translate(-50%, -38px) scale(0.9);  opacity: 0; }
 }
 
 /* ============================== Utility ================================ */
@@ -745,9 +798,8 @@ tr.is-you:hover td {
   .statusbar-item:nth-child(n+4) { display: none; }
   .user-chip span#userName { max-width: 90px; }
   .answers-grid { grid-template-columns: 1fr; }
-  .btn-arena { padding: 14px 16px; gap: 12px; }
+  .btn-arena { padding: 12px 14px; gap: 12px; min-height: 56px; }
   .btn-arena-emoji { font-size: 24px; }
   .btn-arena-title { font-size: 15px; }
-  .btn-arena-sub { font-size: 11px; }
   .code-block { font-size: 13px; padding: 14px 16px; }
 }

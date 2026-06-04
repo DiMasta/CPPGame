@@ -16,20 +16,20 @@ service cloud.firestore {
                     && request.auth.uid == userId
                     && request.resource.data.points == 0;
 
-      // Allow the user to update their own document if EITHER:
-      //   - their `points` value stays exactly the same (e.g. nickname edit), OR
-      //   - their `points` value increases by exactly 1 (a correct quiz answer).
+      // Allow the user to update their own document, with their `points`
+      // value either unchanged (nickname / profile edits) or increased by
+      // between 1 and 5 (a correct quiz answer; the size of the award
+      // depends on how many wrong guesses they made first — 5 / 3 / 2 / 1
+      // for 0 / 1 / 2 / 3 wrong guesses respectively).
       //
-      // POC compromise: this means a determined cheater could still spam the
-      // +1 path from the JS console to farm points. The proper hardening is a
-      // Cloud Function that awards points only after server-side answer
-      // verification — that's the next anti-cheat step.
+      // POC compromise: this still trusts the client to compute the award
+      // honestly. A determined cheater could write +5 from the JS console.
+      // The proper hardening is a Cloud Function that grades answers
+      // server-side and issues the points — that's the next anti-cheat step.
       allow update: if request.auth != null
                     && request.auth.uid == userId
-                    && (
-                      request.resource.data.points == resource.data.points
-                      || request.resource.data.points == resource.data.points + 1
-                    );
+                    && request.resource.data.points >= resource.data.points
+                    && request.resource.data.points <= resource.data.points + 5;
 
       allow delete: if false;
     }

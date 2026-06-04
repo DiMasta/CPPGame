@@ -54,7 +54,7 @@ const VIEW_TAB_NAMES = {
 // In pre-login views only the current view's filename is shown.
 const NAV_VIEWS = ["arena", "leaderboard"];
 
-const quizState = { current: null };
+const quizState = { current: null, wrongCount: 0 };
 
 function showView(name) {
   for (const [key, el] of Object.entries(views)) {
@@ -315,6 +315,7 @@ function nextQuestion() {
     correct,
     options: shuffleInPlace([correct, ...distractors]),
   };
+  quizState.wrongCount = 0;
   renderQuestion();
 }
 
@@ -323,7 +324,6 @@ function renderQuestion() {
   $("quizCode").innerHTML = helloWorldSnippet(correct);
   $("quizFeedback").className = "feedback hidden";
   $("quizFeedback").textContent = "";
-  $("quizNextBtn").classList.add("hidden");
 
   const labels = ["A", "B", "C", "D"];
   $("quizAnswers").innerHTML = options
@@ -355,43 +355,106 @@ function helloWorldSnippet(message) {
 }
 
 async function onAnswer(btn) {
+  if (!quizState.current || btn.disabled) return;
   const choice = btn.dataset.option;
   const correct = quizState.current.correct;
   const isCorrect = choice === correct;
 
-  // Lock the choices and mark right/wrong.
-  $("quizAnswers").querySelectorAll(".answer-btn").forEach((b) => {
-    b.disabled = true;
-    if (b.dataset.option === correct) b.classList.add("correct");
-    else if (b === btn) b.classList.add("incorrect");
-  });
-
-  const fb = $("quizFeedback");
-  if (isCorrect) {
-    fb.textContent = "🎯 Correct! +1 point";
-    fb.className = "feedback ok";
-  } else {
-    fb.textContent = `🐉 Not quite — the correct output was "${correct}"`;
-    fb.className = "feedback bad";
+  if (!isCorrect) {
+    // Wrong: light up only this button red. Others stay clickable so the
+    // player can keep trying until they get it right.
+    btn.classList.add("incorrect");
+    btn.disabled = true;
+    quizState.wrongCount += 1;
+    return;
   }
 
-  // Award the point. Firestore rules cap the increment at +1 per write.
-  if (isCorrect && currentUser) {
+  // Correct: lock all buttons and highlight the chosen one green.
+  btn.classList.remove("incorrect");
+  btn.classList.add("correct");
+  $("quizAnswers").querySelectorAll(".answer-btn").forEach((b) => {
+    b.disabled = true;
+  });
+
+  // Award by tries: 5 on first shot, 3 on second, 2 on third, 1 on fourth.
+  const AWARD_BY_WRONGS = [5, 3, 2, 1];
+  const award = AWARD_BY_WRONGS[Math.min(quizState.wrongCount, AWARD_BY_WRONGS.length - 1)];
+
+  // Award the points. Firestore rules cap the increment at +4 per write.
+  if (currentUser) {
     try {
       await updateDoc(doc(db, "players", currentUser.uid), {
-        points: increment(1),
+        points: increment(award),
       });
     } catch (err) {
-      console.error("Failed to award point:", err);
+      console.error("Failed to award points:", err);
+      const fb = $("quizFeedback");
+      fb.textContent = "Could not save your points — try again";
+      fb.className = "feedback bad";
+      return; // don't auto-advance if the write failed
     }
   }
 
-  $("quizNextBtn").classList.remove("hidden");
+  flashScore(award);
+
+  // Hold on the green button for a moment, then slide to the next question.
+  await wait(1400);
+  await transitionToNextQuestion();
+}
+
+// Green flash on the "Score:" chip + a floating "+N" pop above it.
+function flashScore(amount) {
+  const chip = $("arenaScoreChip");
+  if (!chip) return;
+
+  // Remove any in-flight pop from a previous answer.
+  const oldPop = chip.querySelector(".score-pop");
+  if (oldPop) oldPop.remove();
+
+  const pop = document.createElement("span");
+  pop.className = "score-pop";
+  pop.textContent = `+${amount}`;
+  chip.appendChild(pop);
+
+  // Restart the chip's flash animation by removing/re-adding the class.
+  chip.classList.remove("score-flash");
+  void chip.offsetWidth; // force reflow
+  chip.classList.add("score-flash");
+
+  setTimeout(() => {
+    chip.classList.remove("score-flash");
+    pop.remove();
+  }, 1300);
+}
+
+function wait(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// TikTok-style: current question slides up + fades out, new one slides in from below.
+async function transitionToNextQuestion() {
+  const slide = $("quizSlide");
+  await slide.animate(
+    [
+      { transform: "translateY(0)",    opacity: 1, filter: "blur(0)" },
+      { transform: "translateY(-35%)", opacity: 0, filter: "blur(4px)" },
+    ],
+    { duration: 280, easing: "cubic-bezier(0.5, 0, 0.75, 0)", fill: "forwards" }
+  ).finished;
+
+  nextQuestion();
+
+  await slide.animate(
+    [
+      { transform: "translateY(40%)", opacity: 0, filter: "blur(4px)" },
+      { transform: "translateY(0)",   opacity: 1, filter: "blur(0)" },
+    ],
+    { duration: 380, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "forwards" }
+  ).finished;
 }
 
 // "Enter the Arena" button on the leaderboard view.
 $("enterArenaBtn").addEventListener("click", () => showView("arena"));
-$("quizNextBtn").addEventListener("click", nextQuestion);
 
 // ---------------------------------------------------------------------------
 //  Small escaping helpers (nicknames are user input).
