@@ -338,14 +338,17 @@ function renderBoard(players) {
         : `<img alt="" />`;
       const youTag = isYou ? '<span class="you-tag">You</span>' : "";
       const arenaTag = p.inArena ? '<span class="arena-tag">In Arena</span>' : "";
+      const tags = youTag + arenaTag;
       return `
         <tr class="${isYou ? "is-you" : ""}">
           <td class="col-rank"><span class="${badgeClass}">${rank}</span></td>
           <td class="col-player">
             <div class="player-cell">
               ${avatar}
-              <span class="player-name">${escapeHtml(p.nickname || "Player")}</span>
-              ${youTag}${arenaTag}
+              <div class="player-info">
+                <span class="player-name">${escapeHtml(p.nickname || "Player")}</span>
+                ${tags ? `<div class="player-tags">${tags}</div>` : ""}
+              </div>
             </div>
           </td>
           <td class="col-points">${points}</td>
