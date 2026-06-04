@@ -490,6 +490,30 @@ table.board td.col-points {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+/* Live "IN ARENA" presence tag — pulses softly to feel real-time. */
+.arena-tag {
+  font-size: 9px;
+  font-weight: 800;
+  color: #56d364;
+  background: rgba(86, 211, 100, 0.15);
+  border: 1px solid rgba(86, 211, 100, 0.4);
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  margin-left: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  animation: arenaTagPulse 1.8s ease-in-out infinite;
+}
+@keyframes arenaTagPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(86, 211, 100, 0);
+    border-color: rgba(86, 211, 100, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 8px 1px rgba(86, 211, 100, 0.4);
+    border-color: rgba(86, 211, 100, 0.7);
+  }
+}
 tr.is-you td {
   background: linear-gradient(90deg, rgba(163, 113, 247, 0.12), rgba(88, 166, 255, 0.04));
   border-color: rgba(163, 113, 247, 0.25);

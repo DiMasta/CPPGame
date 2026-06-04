@@ -63,6 +63,9 @@ function showView(name) {
   }
   renderTabs(name);
   if (name === "arena" && !quizState.current) nextQuestion();
+  // Reflect arena presence on the player's doc — other clients see this in the
+  // leaderboard as a live "IN ARENA" tag.
+  setInArenaFlag(name === "arena");
 }
 
 function renderTabs(activeView) {
@@ -109,6 +112,22 @@ const provider = new GoogleAuthProvider();
 let currentUser = null;
 let unsubscribeBoard = null; // detach the leaderboard listener on sign-out
 
+// Tracks the last `inArena` value we wrote to this player's Firestore doc.
+// `null` means "unknown / not yet written this session" — used to force a
+// reset write on first sign-in so a stale `true` from a crash gets cleared.
+let lastWrittenInArena = null;
+
+async function setInArenaFlag(value) {
+  if (!currentUser) return;
+  if (lastWrittenInArena === value) return; // skip redundant writes
+  try {
+    await updateDoc(doc(db, "players", currentUser.uid), { inArena: value });
+    lastWrittenInArena = value;
+  } catch (err) {
+    console.error("Failed to update inArena flag:", err);
+  }
+}
+
 // ---------------------------------------------------------------------------
 //  Auth: sign in / out
 // ---------------------------------------------------------------------------
@@ -121,7 +140,21 @@ $("googleSignInBtn").addEventListener("click", async () => {
   }
 });
 
-$("signOutBtn").addEventListener("click", () => signOut(auth));
+$("signOutBtn").addEventListener("click", () => {
+  // Best-effort clear before tearing down auth. If the write loses the race
+  // with sign-out, the next sign-in will reset the flag anyway.
+  setInArenaFlag(false).catch(() => {});
+  signOut(auth);
+});
+
+// Best-effort presence-clear when the player closes the tab or navigates away.
+// Async writes in beforeunload are unreliable; falling back to the on-sign-in
+// reset is what actually guarantees correctness.
+window.addEventListener("beforeunload", () => {
+  if (currentUser && lastWrittenInArena === true) {
+    setInArenaFlag(false).catch(() => {});
+  }
+});
 
 // React to login state changes (this fires on page load too).
 onAuthStateChanged(auth, async (user) => {
@@ -130,6 +163,7 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) {
     teardownBoard();
     quizState.current = null;
+    lastWrittenInArena = null; // force a fresh write on next sign-in
     $("userChip").classList.add("hidden");
     showView("login");
     return;
@@ -258,6 +292,7 @@ function renderBoard(players) {
         ? `<img src="${escapeAttr(p.photoURL)}" alt="" referrerpolicy="no-referrer" />`
         : `<img alt="" />`;
       const youTag = isYou ? '<span class="you-tag">You</span>' : "";
+      const arenaTag = p.inArena ? '<span class="arena-tag">In Arena</span>' : "";
       return `
         <tr class="${isYou ? "is-you" : ""}">
           <td class="col-rank"><span class="${badgeClass}">${rank}</span></td>
@@ -265,7 +300,7 @@ function renderBoard(players) {
             <div class="player-cell">
               ${avatar}
               <span class="player-name">${escapeHtml(p.nickname || "Player")}</span>
-              ${youTag}
+              ${youTag}${arenaTag}
             </div>
           </td>
           <td class="col-points">${points}</td>
