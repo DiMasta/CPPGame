@@ -4,6 +4,7 @@
 // ===========================================================================
 
 import { firebaseConfig, isConfigured } from "./firebase-config.js";
+import { QUESTIONS } from "./questions.js";
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -274,31 +275,20 @@ function renderBoard(players) {
 }
 
 // ---------------------------------------------------------------------------
-//  Quiz Arena — "what does this print?" with a Hello World snippet
+//  Quiz Arena
 // ---------------------------------------------------------------------------
-const HELLO_MESSAGES = [
-  "Hello Dragons!",
-  "Hello, World!",
-  "Greetings, mortals!",
-  "C++ is awesome!",
-  "Welcome to the Arena!",
-  "Dragons rule!",
-  "Code or perish!",
-  "Long live C++!",
-  "May the code be with you",
-  "Beware of segfaults",
-  "DCSA forever!",
-  "Quiz time!",
-];
-
-function pickN(arr, n, exclude) {
-  const pool = arr.filter((x) => !exclude.has(x));
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  return pool.slice(0, n);
-}
+const TYPE_ICONS = {
+  output:   "📝",
+  mistake:  "🐞",
+  behavior: "🤔",
+  theory:   "💡",
+};
+const DEFAULT_PROMPTS = {
+  output:   "What does this program print?",
+  mistake:  "Where is the mistake?",
+  behavior: "What does this program do?",
+  theory:   "",  // theory questions must provide their own prompt
+};
 
 function shuffleInPlace(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -308,20 +298,47 @@ function shuffleInPlace(arr) {
   return arr;
 }
 
+// Pick a random question without repeating the previous one.
+let lastQuestionIdx = -1;
+function pickRandomQuestion() {
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * QUESTIONS.length);
+  } while (idx === lastQuestionIdx && QUESTIONS.length > 1);
+  lastQuestionIdx = idx;
+  return QUESTIONS[idx];
+}
+
 function nextQuestion() {
-  const correct = HELLO_MESSAGES[Math.floor(Math.random() * HELLO_MESSAGES.length)];
-  const distractors = pickN(HELLO_MESSAGES, 3, new Set([correct]));
+  const q = pickRandomQuestion();
+  const correctText = q.options[q.correctIndex];
   quizState.current = {
-    correct,
-    options: shuffleInPlace([correct, ...distractors]),
+    type:    q.type,
+    prompt:  q.prompt || DEFAULT_PROMPTS[q.type] || "Pick the correct answer",
+    code:    q.code || "",
+    options: shuffleInPlace([...q.options]),
+    correct: correctText,
   };
   quizState.wrongCount = 0;
   renderQuestion();
 }
 
 function renderQuestion() {
-  const { correct, options } = quizState.current;
-  $("quizCode").innerHTML = helloWorldSnippet(correct);
+  const { type, prompt, code, options } = quizState.current;
+
+  // Prompt with type icon.
+  $("quizPrompt").textContent = `${TYPE_ICONS[type] || "📝"} ${prompt}`;
+
+  // Code block — hidden when the question has no code (e.g. most theory).
+  const codeEl = $("quizCode");
+  if (code) {
+    codeEl.classList.remove("hidden");
+    codeEl.innerHTML = highlightCpp(code);
+  } else {
+    codeEl.classList.add("hidden");
+  }
+
+  // Reset feedback.
   $("quizFeedback").className = "feedback hidden";
   $("quizFeedback").textContent = "";
 
@@ -340,18 +357,82 @@ function renderQuestion() {
   });
 }
 
-// Build a VS-Dark-styled Hello World snippet with the given output message.
-function helloWorldSnippet(message) {
-  const msg = escapeHtml(message);
-  return [
-    `<span class="tk-pp">#include</span> <span class="tk-hdr">&lt;iostream&gt;</span>`,
-    ``,
-    `<span class="tk-kw">using</span> <span class="tk-kw">namespace</span> <span class="tk-id">std</span>;`,
-    ``,
-    `<span class="tk-kw">int</span> <span class="tk-fn">main</span>() {`,
-    `    <span class="tk-id">cout</span> &lt;&lt; <span class="tk-str">"${msg}"</span> &lt;&lt; <span class="tk-id">endl</span>;`,
-    `}`,
-  ].join("\n");
+// ---------------------------------------------------------------------------
+//  C++ syntax highlighter — small tokenizer that wraps tokens in <span class="tk-*">.
+//  Recognized classes match the colors defined in css/styles.css (.tk-pp, .tk-kw,
+//  .tk-id, .tk-fn, .tk-str, .tk-num, .tk-hdr, .tk-cmt).
+// ---------------------------------------------------------------------------
+const CPP_KEYWORDS = new Set([
+  "auto", "bool", "break", "case", "catch", "char", "class", "const", "continue",
+  "default", "delete", "do", "double", "else", "enum", "extern", "false", "float",
+  "for", "if", "int", "long", "namespace", "new", "nullptr", "private", "protected",
+  "public", "return", "short", "signed", "sizeof", "static", "struct", "switch",
+  "this", "throw", "true", "try", "typedef", "unsigned", "using", "virtual", "void",
+  "volatile", "while",
+]);
+const CPP_STD = new Set([
+  "std", "cout", "cin", "endl", "cerr", "string", "vector", "map", "set", "pair",
+  "size_t", "NULL",
+]);
+
+function highlightCpp(code) {
+  // Ordered alternatives. Each capture group corresponds to one token kind.
+  const re = /(\/\/[^\n]*)|(\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\])*")|('(?:\\.|[^'\\])*')|(0b[01]+|0x[\da-fA-F]+|\d+\.?\d*)|(#[A-Za-z]+)|([A-Za-z_]\w*)|(\s+)|(\S)/g;
+
+  let html = "";
+  let lastWasInclude = false;
+  let m;
+  while ((m = re.exec(code)) !== null) {
+    const [whole, lineCmt, blockCmt, str, chr, num, pp, ident, ws, other] = m;
+
+    // Whitespace passes through and doesn't reset the #include state, so that
+    // "#include   <iostream>" still recognizes the header.
+    if (ws) {
+      html += whole;
+      continue;
+    }
+
+    if (lineCmt || blockCmt) {
+      html += `<span class="tk-cmt">${escapeHtml(whole)}</span>`;
+    } else if (str || chr) {
+      html += `<span class="tk-str">${escapeHtml(whole)}</span>`;
+    } else if (num) {
+      html += `<span class="tk-num">${escapeHtml(whole)}</span>`;
+    } else if (pp) {
+      html += `<span class="tk-pp">${escapeHtml(whole)}</span>`;
+      lastWasInclude = (pp === "#include");
+      continue; // preserve the lastWasInclude flag through trailing whitespace
+    } else if (ident) {
+      let cls = "";
+      if (CPP_KEYWORDS.has(ident)) cls = "kw";
+      else if (CPP_STD.has(ident)) cls = "id";
+      else {
+        // Function call / declaration: identifier followed by "(".
+        const after = code.slice(m.index + ident.length);
+        if (/^\s*\(/.test(after)) cls = "fn";
+      }
+      html += cls
+        ? `<span class="tk-${cls}">${escapeHtml(ident)}</span>`
+        : escapeHtml(ident);
+    } else if (other === "<" && lastWasInclude) {
+      // Header lookahead — consume up to and including the matching ">".
+      const restStart = m.index + 1;
+      const rest = code.slice(restStart);
+      const closeIdx = rest.indexOf(">");
+      if (closeIdx >= 0) {
+        const header = "<" + rest.slice(0, closeIdx + 1);
+        html += `<span class="tk-hdr">${escapeHtml(header)}</span>`;
+        re.lastIndex = restStart + closeIdx + 1;
+      } else {
+        html += escapeHtml(whole);
+      }
+    } else {
+      html += escapeHtml(whole);
+    }
+
+    lastWasInclude = false;
+  }
+  return html;
 }
 
 async function onAnswer(btn) {
