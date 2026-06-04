@@ -210,14 +210,16 @@ onAuthStateChanged(auth, async (user) => {
     lastWrittenInArena = null;
     currentViewName = null;
     $("userChip").classList.add("hidden");
+    $("arenaScoreChip").classList.add("hidden");
     showView("login");
     return;
   }
 
-  // Show the user chip in the top bar.
+  // Show the user chip + live score in the top bar.
   $("userAvatar").src = user.photoURL || "";
   $("userName").textContent = user.displayName || user.email || "Player";
   $("userChip").classList.remove("hidden");
+  $("arenaScoreChip").classList.remove("hidden");
 
   // Do they already have a player profile (with a nickname)?
   const playerRef = doc(db, "players", user.uid);
