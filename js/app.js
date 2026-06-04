@@ -533,12 +533,13 @@ async function onAnswer(btn) {
     b.disabled = true;
   });
 
-  // Award by tries: 5 on first shot, 3 on second, 2 on third, 1 on fourth.
-  const AWARD_BY_WRONGS = [5, 3, 2, 1];
+  // Award by tries: 5 on the first shot, 1 on the second, 0 after that.
+  const AWARD_BY_WRONGS = [5, 1, 0];
   const award = AWARD_BY_WRONGS[Math.min(quizState.wrongCount, AWARD_BY_WRONGS.length - 1)];
 
-  // Award the points. Firestore rules cap the increment at +4 per write.
-  if (currentUser) {
+  // Save the points. Skip the write entirely when the answer earns nothing
+  // (Firestore rules allow an increment of +1..5, or leaving points unchanged).
+  if (currentUser && award > 0) {
     try {
       await updateDoc(doc(db, "players", currentUser.uid), {
         points: increment(award),
@@ -552,7 +553,7 @@ async function onAnswer(btn) {
     }
   }
 
-  flashScore(award);
+  if (award > 0) flashScore(award);
 
   // Hold on the green button for a moment, then slide to the next question.
   await wait(1400);

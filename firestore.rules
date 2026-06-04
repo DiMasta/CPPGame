@@ -17,10 +17,9 @@ service cloud.firestore {
                     && request.resource.data.points == 0;
 
       // Allow the user to update their own document, with their `points`
-      // value either unchanged (nickname / profile edits) or increased by
-      // between 1 and 5 (a correct quiz answer; the size of the award
-      // depends on how many wrong guesses they made first — 5 / 3 / 2 / 1
-      // for 0 / 1 / 2 / 3 wrong guesses respectively).
+      // value either unchanged (nickname / profile edits, or a no-reward
+      // answer) or increased by between 1 and 5 (a correct quiz answer:
+      // 5 points for a first-try answer, 1 for a second try, 0 after that).
       //
       // POC compromise: this still trusts the client to compute the award
       // honestly. A determined cheater could write +5 from the JS console.
