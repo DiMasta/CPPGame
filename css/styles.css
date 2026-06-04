@@ -808,6 +808,10 @@ tr.is-you:hover td {
   line-height: 1.4;
   /* Wrap long answers (theory questions can have multi-line option text). */
   word-break: break-word;
+  /* Preserve newlines in multi-line output answers (collapses runs of spaces
+     but honors "\n"), so options that span several printed lines render as
+     separate lines like a real console. */
+  white-space: pre-line;
 }
 /* Correct: vivid green fill so it pops before the auto-advance. */
 .answer-btn.correct,

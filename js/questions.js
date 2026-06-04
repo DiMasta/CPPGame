@@ -166,6 +166,15 @@ function genIntDivision() {
   const remainder = rand(1, divisor - 1);
   const dividend = quot * divisor + remainder;
   const decimal = (dividend / divisor).toFixed(2);
+  // Correct = quot (integer division truncates). Build 3 distinct distractors:
+  // the "real" decimal result, and a couple of near-misses. Guard against
+  // collisions (e.g. remainder == quot) so no option is duplicated.
+  const opts = [String(quot)];
+  const seen = new Set(opts);
+  for (const cand of [decimal, String(quot + 1), String(remainder), String(quot - 1), String(quot + 2)]) {
+    if (!seen.has(cand)) { seen.add(cand); opts.push(cand); }
+    if (opts.length === 4) break;
+  }
   return {
     type: "output",
     code:
@@ -177,7 +186,7 @@ int main() {
     int y = ${divisor};
     cout << x / y << endl;
 }`,
-    options: [String(quot), decimal, String(quot + 1), String(remainder)],
+    options: opts,
     correctIndex: 0,
   };
 }
@@ -187,10 +196,19 @@ function genModulo() {
   const y = rand(2, 9);
   const correct = x % y;
   const quot = Math.floor(x / y);
-  // build 3 distinct distractors
-  const set = new Set([String(quot), String(correct + 1 > y - 1 ? 0 : correct + 1), String(y)]);
-  set.delete(String(correct));
-  while (set.size < 3) set.add(String(rand(0, y - 1) === correct ? y : rand(0, y - 1)));
+  // Correct = remainder. Distractors: the quotient (a common mix-up), the
+  // divisor itself, and a couple of near-miss remainders. Build a distinct
+  // set, then pad from small integers as a final safety net.
+  const opts = [String(correct)];
+  const seen = new Set(opts);
+  for (const cand of [String(quot), String(y), String((correct + 1) % y), String((correct + 2) % y), String(correct + 1)]) {
+    if (!seen.has(cand)) { seen.add(cand); opts.push(cand); }
+    if (opts.length === 4) break;
+  }
+  for (let pad = 0; opts.length < 4; pad++) {
+    const s = String(pad);
+    if (!seen.has(s)) { seen.add(s); opts.push(s); }
+  }
   return {
     type: "output",
     code:
@@ -200,7 +218,7 @@ using namespace std;
 int main() {
     cout << ${x} % ${y} << endl;
 }`,
-    options: [String(correct), ...Array.from(set).slice(0, 3)],
+    options: opts,
     correctIndex: 0,
   };
 }
@@ -832,6 +850,495 @@ int main() {
 }
 
 // ---------------------------------------------------------------------------
+//  MULTILINE & FORMATTING OUTPUT  (📝 — endl vs no-endl vs "\n")
+// ---------------------------------------------------------------------------
+function genMultilineEndl() {
+  const [l1, l2, l3] = pickN(HW_MESSAGES, 3);
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    cout << "${l1}" << endl;
+    cout << "${l2}" << endl;
+    cout << "${l3}" << endl;
+}`,
+    options: [
+      `${l1}\n${l2}\n${l3}`, // correct — each endl starts a new line
+      `${l3}\n${l2}\n${l1}`, // reversed order
+      `${l1} ${l2} ${l3}`,   // misconception: all on one line
+      `${l1}\n${l2}`,        // missing the last line
+    ],
+    correctIndex: 0,
+  };
+}
+
+function genCoutSameLine() {
+  const [a, b, c] = pickN(["Hi", "Yo", "Go", "C++", "Win", "Run", "Fun", "Dev", "Bit", "Pro"], 3);
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    cout << "${a}";
+    cout << "${b}";
+    cout << "${c}";
+}`,
+    options: [
+      `${a}${b}${c}`,     // correct — no endl, so everything is on one line
+      `${a}\n${b}\n${c}`, // misconception: separate lines
+      `${a} ${b} ${c}`,   // misconception: spaces in between
+      `${c}${b}${a}`,     // reversed
+    ],
+    correctIndex: 0,
+  };
+}
+
+function genNewlineEscape() {
+  const [x, y] = pick([
+    ["Hello", "World"], ["Game", "Over"], ["Good", "Job"],
+    ["Win", "Lose"], ["Up", "Down"], ["Left", "Right"],
+  ]);
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    cout << "${x}\\n${y}" << endl;
+}`,
+    options: [
+      `${x}\n${y}`,  // correct — \n is a new line
+      `${x}\\n${y}`, // misconception: prints the \n characters literally
+      `${x}${y}`,    // joined with nothing
+      `${x} ${y}`,   // a space instead of a new line
+    ],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  NEGATIVE NUMBERS  (📝)
+// ---------------------------------------------------------------------------
+function genNegativeArith() {
+  const a = rand(-15, -1);
+  const b = rand(1, 15);
+  const op = pick(["+", "-", "*"]);
+  const correct = op === "+" ? a + b : op === "-" ? a - b : a * b;
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int a = ${a};
+    int b = ${b};
+    cout << a ${op} b << endl;
+}`,
+    options: [String(correct), ...offsets(correct, 3).map(String)],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  BINARY  (💡 theory — beginner conversions, small numbers 2..15)
+// ---------------------------------------------------------------------------
+function genDecimalToBinary() {
+  const n = rand(2, 15);
+  const correct = n.toString(2);
+  const set = new Set();
+  while (set.size < 3) {
+    const cand = rand(2, 15).toString(2);
+    if (cand !== correct) set.add(cand);
+  }
+  return {
+    type: "theory",
+    prompt: `What is the number ${n} written in binary?`,
+    options: [correct, ...set],
+    correctIndex: 0,
+  };
+}
+
+function genBinaryToDecimal() {
+  const n = rand(2, 15);
+  const set = new Set();
+  while (set.size < 3) {
+    const cand = rand(0, 15);
+    if (cand !== n) set.add(String(cand));
+  }
+  return {
+    type: "theory",
+    prompt: `What is the binary number ${n.toString(2)} in decimal (base 10)?`,
+    options: [String(n), ...set],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  STRINGS & CHAR  (📝)
+// ---------------------------------------------------------------------------
+function genStringConcat() {
+  const [a, b] = pick([
+    ["Hello", "World"], ["Dragon", "Fire"], ["Code", "Master"],
+    ["Game", "Over"], ["Super", "Star"], ["Pixel", "Art"],
+  ]);
+  const withSpace = Math.random() < 0.5;
+  const expr = withSpace ? `a + " " + b` : `a + b`;
+  const correct = withSpace ? `${a} ${b}` : `${a}${b}`;
+  const otherJoin = withSpace ? `${a}${b}` : `${a} ${b}`;
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+    string a = "${a}";
+    string b = "${b}";
+    cout << ${expr} << endl;
+}`,
+    options: [correct, otherJoin, `${b}${a}`, "a + b"],
+    correctIndex: 0,
+  };
+}
+
+function genStringGreeting() {
+  const name = pick(["Sam", "Mia", "Leo", "Ava", "Max", "Zoe", "Ben", "Nia"]);
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+    string name = "${name}";
+    cout << "Hi " << name << "!" << endl;
+}`,
+    options: [`Hi ${name}!`, "Hi name!", `${name}`, `Hi ${name}`],
+    correctIndex: 0,
+  };
+}
+
+function genStringLength() {
+  const word = pick(["Dragon", "Code", "Arena", "Loop", "Array", "Binary", "Pixel", "Score", "Level", "Game"]);
+  const n = word.length;
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+    string word = "${word}";
+    cout << word.length() << endl;
+}`,
+    options: [String(n), String(n + 1), String(n - 1), String(n + 2)],
+    correctIndex: 0,
+  };
+}
+
+function genCharLiteral() {
+  const pool = ["A", "B", "C", "X", "Y", "Z", "Q", "M", "K", "R", "D", "E"];
+  const ch = pick(pool);
+  const others = pickN(pool.filter((c) => c !== ch), 3);
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    char letter = '${ch}';
+    cout << letter << endl;
+}`,
+    options: [ch, ...others],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  BOOL & LOGIC  (📝)
+// ---------------------------------------------------------------------------
+function genBoolLogic() {
+  const av = pick([true, false]);
+  const bv = pick([true, false]);
+  const op = pick(["&&", "||"]);
+  const res = op === "&&" ? (av && bv) : (av || bv);
+  const correct = res ? "1" : "0";
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    bool a = ${av};
+    bool b = ${bv};
+    cout << (a ${op} b) << endl;
+}`,
+    options: [correct, correct === "1" ? "0" : "1", "true", "false"],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  IF / ELSE IF  (📝)
+// ---------------------------------------------------------------------------
+function genElseIfSign() {
+  const n = pick([rand(1, 20), rand(-20, -1), 0, rand(1, 20), rand(-20, -1)]);
+  const word = n > 0 ? "positive" : n < 0 ? "negative" : "zero";
+  const others = ["positive", "negative", "zero"].filter((w) => w !== word);
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int n = ${n};
+    if (n > 0) {
+        cout << "positive" << endl;
+    } else if (n < 0) {
+        cout << "negative" << endl;
+    } else {
+        cout << "zero" << endl;
+    }
+}`,
+    options: [word, ...others, "Nothing is printed"],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  LOOP VARIATIONS  (📝)
+// ---------------------------------------------------------------------------
+function genWhileCountdown() {
+  const n = rand(3, 7);
+  let down = "", up = "", toZero = "";
+  for (let i = n; i >= 1; i--) down += i + " ";
+  for (let i = 1; i <= n; i++) up += i + " ";
+  for (let i = n; i >= 0; i--) toZero += i + " ";
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int n = ${n};
+    while (n > 0) {
+        cout << n << " ";
+        n--;
+    }
+}`,
+    options: [down.trim(), up.trim(), toZero.trim(), String(n)],
+    correctIndex: 0,
+  };
+}
+
+function genForStep() {
+  const step = pick([2, 3, 5]);
+  const end = step * pick([3, 4, 5]);
+  let correct = "", by1 = "", fromStep = "";
+  for (let i = 0; i <= end; i += step) correct += i + " ";
+  for (let i = 0; i <= end; i++) by1 += i + " ";
+  for (let i = step; i <= end; i += step) fromStep += i + " ";
+  const opts = [correct.trim(), by1.trim(), fromStep.trim(), String(end)]
+    .filter((v, i, a) => a.indexOf(v) === i);
+  while (opts.length < 4) opts.push(opts[0] + " " + (end + step * opts.length));
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    for (int i = 0; i <= ${end}; i += ${step}) {
+        cout << i << " ";
+    }
+}`,
+    options: opts.slice(0, 4),
+    correctIndex: 0,
+  };
+}
+
+function genMultiplicationTable() {
+  const k = rand(2, 9);
+  const count = pick([3, 4, 5]);
+  let correct = "", plus = "", idx = "";
+  for (let i = 1; i <= count; i++) correct += (k * i) + " ";
+  for (let i = 1; i <= count; i++) plus += (k + i) + " ";
+  for (let i = 1; i <= count; i++) idx += i + " ";
+  const opts = [correct.trim(), plus.trim(), idx.trim(), String(k * count + k)]
+    .filter((v, i, a) => a.indexOf(v) === i);
+  while (opts.length < 4) opts.push(opts[0] + " " + (k * (count + opts.length)));
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int k = ${k};
+    for (int i = 1; i <= ${count}; i++) {
+        cout << k * i << " ";
+    }
+}`,
+    options: opts.slice(0, 4),
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  ARRAYS & FUNCTIONS — extra variations  (📝)
+// ---------------------------------------------------------------------------
+function genArrayMaxOutput() {
+  const arr = Array.from({ length: 5 }, () => rand(1, 50));
+  const max = Math.max(...arr);
+  const min = Math.min(...arr);
+  const sum = arr.reduce((s, v) => s + v, 0);
+  const seen = new Set();
+  const opts = [];
+  for (const c of [String(max), String(min), String(arr[0]), String(sum)]) {
+    if (!seen.has(c)) { seen.add(c); opts.push(c); }
+  }
+  for (const o of offsets(max, 4)) {
+    if (opts.length >= 4) break;
+    const s = String(o);
+    if (!seen.has(s)) { seen.add(s); opts.push(s); }
+  }
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int arr[5] = {${arr.join(", ")}};
+    int best = arr[0];
+    for (int i = 1; i < 5; i++) {
+        if (arr[i] > best) {
+            best = arr[i];
+        }
+    }
+    cout << best << endl;
+}`,
+    options: opts.slice(0, 4),
+    correctIndex: 0,
+  };
+}
+
+function genFunctionSquare() {
+  const n = rand(2, 12);
+  const correct = n * n;
+  const set = new Set();
+  for (const d of [n * 2, n, correct + n, correct - 1, correct + 2]) {
+    if (d !== correct) set.add(String(d));
+    if (set.size >= 3) break;
+  }
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int square(int n) {
+    return n * n;
+}
+
+int main() {
+    cout << square(${n}) << endl;
+}`,
+    options: [String(correct), ...set],
+    correctIndex: 0,
+  };
+}
+
+function genFunctionAdd() {
+  const a = rand(2, 20);
+  const b = rand(2, 20);
+  const correct = a + b;
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int add(int a, int b) {
+    return a + b;
+}
+
+int main() {
+    cout << add(${a}, ${b}) << endl;
+}`,
+    options: [String(correct), ...offsets(correct, 3).map(String)],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  GAME DEV — game-loop flavored  (📝)
+// ---------------------------------------------------------------------------
+function genGameLoopLives() {
+  const lives = rand(2, 4);
+  let correct = "", tooMany = "", noOver = "";
+  for (let i = 0; i < lives; i++) correct += "Playing...\n";
+  correct += "Game Over";
+  for (let i = 0; i < lives + 1; i++) tooMany += "Playing...\n";
+  tooMany += "Game Over";
+  for (let i = 0; i < lives; i++) noOver += "Playing...\n";
+  noOver = noOver.trim();
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int lives = ${lives};
+    while (lives > 0) {
+        cout << "Playing..." << endl;
+        lives--;
+    }
+    cout << "Game Over" << endl;
+}`,
+    options: [correct, tooMany, noOver, "Playing...\nGame Over"],
+    correctIndex: 0,
+  };
+}
+
+function genGameScore() {
+  const per = pick([5, 10, 20, 50, 100]);
+  const rounds = pick([3, 4, 5]);
+  const total = per * rounds;
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int score = 0;
+    for (int i = 0; i < ${rounds}; i++) {
+        score += ${per};
+    }
+    cout << "Score: " << score << endl;
+}`,
+    options: [`Score: ${total}`, `Score: ${per}`, `Score: ${total + per}`, "Score: 0"],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 //  STATIC QUESTIONS  (mostly theory — 💡 — plus a few hand-picked extras)
 // ---------------------------------------------------------------------------
 const STATIC_QUESTIONS = [
@@ -978,6 +1485,77 @@ int main() {
 }`,
     options: ["positive", "not positive", "1", "5"],
     correctIndex: 0 },
+
+  // -- Theory: computer parts & basics --------------------------------------
+  { type: "theory", prompt: "What does the CPU do in a computer?",
+    options: [
+      "It runs the program and does the calculations",
+      "It stores your files permanently",
+      "It shows the pictures on the screen",
+      "It connects the computer to the internet",
+    ], correctIndex: 0 },
+  { type: "theory", prompt: "What does \"CPU\" stand for?",
+    options: ["Central Processing Unit", "Computer Power Unit", "Central Picture Unit", "Control Program Utility"], correctIndex: 0 },
+  { type: "theory", prompt: "Which part of the computer stores data temporarily while a program is running?",
+    options: ["RAM (memory)", "The hard drive", "The monitor", "The keyboard"], correctIndex: 0 },
+  { type: "theory", prompt: "Where are your files kept even after the computer is turned off?",
+    options: ["On the hard drive / SSD", "In the RAM", "On the screen", "Inside the CPU"], correctIndex: 0 },
+  { type: "theory", prompt: "Which of these is an INPUT device?",
+    options: ["Keyboard", "Monitor", "Printer", "Speakers"], correctIndex: 0 },
+  { type: "theory", prompt: "Which of these is an OUTPUT device?",
+    options: ["Monitor", "Keyboard", "Mouse", "Microphone"], correctIndex: 0 },
+  { type: "theory", prompt: "Which two digits does the binary system use?",
+    options: ["0 and 1", "1 and 2", "0 through 9", "Only 1"], correctIndex: 0 },
+  { type: "theory", prompt: "What is the difference between hardware and software?",
+    options: [
+      "Hardware is the physical parts; software is the programs",
+      "Hardware is the programs; software is the physical parts",
+      "They are exactly the same thing",
+      "Hardware is for games; software is for school",
+    ], correctIndex: 0 },
+
+  // -- Theory: types, strings, negatives ------------------------------------
+  { type: "theory", prompt: "Which type would you use to store a word like \"Dragon\"?",
+    options: ["`string`", "`int`", "`bool`", "`char`"], correctIndex: 0 },
+  { type: "theory", prompt: "How do you write a single character value in C++?",
+    options: [
+      "With single quotes, like `'A'`",
+      "With double quotes, like `\"A\"`",
+      "With no quotes, like `A`",
+      "With angle brackets, like `<A>`",
+    ], correctIndex: 0 },
+  { type: "theory", prompt: "How do you write a text value (a string) in C++?",
+    options: [
+      "With double quotes, like `\"Hello\"`",
+      "With single quotes, like `'Hello'`",
+      "With no quotes, like `Hello`",
+      "With square brackets, like `[Hello]`",
+    ], correctIndex: 0 },
+  { type: "theory", prompt: "Can an `int` variable store the value 3.5?",
+    options: [
+      "No — an `int` only stores whole numbers",
+      "Yes — it stores 3.5 exactly",
+      "Yes — and it rounds up to 4",
+      "No — the program will not compile",
+    ], correctIndex: 0 },
+  { type: "theory", prompt: "Can an `int` hold a negative number like -8?",
+    options: ["Yes, an `int` can be negative or positive", "No, an `int` is only positive", "Only if you use a `bool`", "Only numbers up to 0"], correctIndex: 0 },
+
+  // -- Theory: game development ---------------------------------------------
+  { type: "theory", prompt: "In game programming, what is the \"game loop\"?",
+    options: [
+      "A loop that repeats to update and redraw the game until it ends",
+      "A bug that makes the game freeze",
+      "The menu you see before the game starts",
+      "The list of all the players' scores",
+    ], correctIndex: 0 },
+  { type: "theory", prompt: "A game should keep running while the player still has lives. Which loop fits best?",
+    options: [
+      "A `while` loop, like `while (lives > 0)`",
+      "A single `if` statement",
+      "One `cout` line",
+      "A `return` statement",
+    ], correctIndex: 0 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -985,10 +1563,10 @@ int main() {
 //  each source can produce, so over a long session every individual variant
 //  appears roughly the same number of times.
 // ---------------------------------------------------------------------------
-// Weights are tuned so each category gets roughly equal share of picks.
-// Target: ~250 per category, ~1000 total weighted variants.
+// Weights are tuned so each category gets a roughly even share of picks.
+// ~1400 total weighted variants across the categories below.
 const SOURCES = [
-  // ---- Output (~250 total) ----
+  // ---- Output: basics ----
   { weight: 25, fn: genHelloWorld },
   { weight: 30, fn: genSimpleArithmetic },
   { weight: 30, fn: genVariableArith },
@@ -1003,7 +1581,41 @@ const SOURCES = [
   { weight: 15, fn: genWhileLoopSum },
   { weight: 12, fn: genCharOutput },
 
-  // ---- Mistake (~250 total) ----
+  // ---- Output: multiline & formatting (cout / endl / "\n") ----
+  { weight: 20, fn: genMultilineEndl },
+  { weight: 15, fn: genCoutSameLine },
+  { weight: 15, fn: genNewlineEscape },
+
+  // ---- Output: negative numbers ----
+  { weight: 25, fn: genNegativeArith },
+
+  // ---- Output: strings & char ----
+  { weight: 18, fn: genStringConcat },
+  { weight: 12, fn: genStringGreeting },
+  { weight: 12, fn: genStringLength },
+  { weight: 12, fn: genCharLiteral },
+
+  // ---- Output: bool & logic ----
+  { weight: 18, fn: genBoolLogic },
+
+  // ---- Output: if / else if ----
+  { weight: 20, fn: genElseIfSign },
+
+  // ---- Output: loop variations (while / for) ----
+  { weight: 15, fn: genWhileCountdown },
+  { weight: 15, fn: genForStep },
+  { weight: 15, fn: genMultiplicationTable },
+
+  // ---- Output: arrays & functions ----
+  { weight: 15, fn: genArrayMaxOutput },
+  { weight: 15, fn: genFunctionSquare },
+  { weight: 15, fn: genFunctionAdd },
+
+  // ---- Output: game-dev (game loop) ----
+  { weight: 18, fn: genGameLoopLives },
+  { weight: 15, fn: genGameScore },
+
+  // ---- Mistake ----
   { weight: 50, fn: genMissingSemicolon },
   { weight: 40, fn: genEqualsMistake },
   { weight: 40, fn: genCinMistake },
@@ -1011,7 +1623,7 @@ const SOURCES = [
   { weight: 50, fn: genOutOfBounds },
   { weight: 40, fn: genUninitVar },
 
-  // ---- Behavior (~250 total) ----
+  // ---- Behavior ----
   { weight: 40, fn: genBehaviorSum },
   { weight: 35, fn: genBehaviorCountdown },
   { weight: 30, fn: genBehaviorEvenOdd },
@@ -1020,9 +1632,13 @@ const SOURCES = [
   { weight: 35, fn: genBehaviorArraySum },
   { weight: 35, fn: genBehaviorMultiply },
 
-  // ---- Theory / static specials (~250 total) ----
+  // ---- Binary (theory generators) ----
+  { weight: 18, fn: genDecimalToBinary },
+  { weight: 18, fn: genBinaryToDecimal },
+
+  // ---- Theory / static specials (incl. computer parts, game-loop theory) ----
   // Single source that uniformly picks from the static bank.
-  { weight: 250, fn: () => pick(STATIC_QUESTIONS) },
+  { weight: 320, fn: () => pick(STATIC_QUESTIONS) },
 ];
 const TOTAL_WEIGHT = SOURCES.reduce((s, x) => s + x.weight, 0);
 
