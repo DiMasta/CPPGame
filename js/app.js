@@ -57,15 +57,27 @@ const NAV_VIEWS = ["arena", "leaderboard"];
 
 const quizState = { current: null, wrongCount: 0 };
 
+let currentViewName = null;
+
 function showView(name) {
+  const wasArena = currentViewName === "arena";
+  const isArena = name === "arena";
+
   for (const [key, el] of Object.entries(views)) {
     el.classList.toggle("hidden", key !== name);
   }
   renderTabs(name);
-  if (name === "arena" && !quizState.current) nextQuestion();
-  // Reflect arena presence on the player's doc — other clients see this in the
-  // leaderboard as a live "IN ARENA" tag.
-  setInArenaFlag(name === "arena");
+  if (isArena && !quizState.current) nextQuestion();
+
+  // Reflect arena presence on the player's doc ONLY on actual transitions
+  // in or out of arena. Writing on every view change (including the initial
+  // sign-in landing on leaderboard) creates a race where one device's
+  // "leaderboard" arrival overwrites another device's "in arena" flag for
+  // the same user.
+  if (isArena && !wasArena) setInArenaFlag(true);
+  else if (!isArena && wasArena) setInArenaFlag(false);
+
+  currentViewName = name;
 }
 
 function renderTabs(activeView) {
@@ -141,9 +153,12 @@ $("googleSignInBtn").addEventListener("click", async () => {
 });
 
 $("signOutBtn").addEventListener("click", () => {
-  // Best-effort clear before tearing down auth. If the write loses the race
-  // with sign-out, the next sign-in will reset the flag anyway.
-  setInArenaFlag(false).catch(() => {});
+  // Only clear the flag if we know it was set this session. Avoids the
+  // wrong-overwrite race when the same account is signed in on another
+  // device and currently in the arena.
+  if (lastWrittenInArena === true) {
+    setInArenaFlag(false).catch(() => {});
+  }
   signOut(auth);
 });
 
@@ -163,7 +178,8 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) {
     teardownBoard();
     quizState.current = null;
-    lastWrittenInArena = null; // force a fresh write on next sign-in
+    lastWrittenInArena = null;
+    currentViewName = null;
     $("userChip").classList.add("hidden");
     showView("login");
     return;
