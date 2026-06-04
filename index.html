@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0f172a" />
-  <title>Dragon CS Academy — C++ Quiz</title>
+  <meta name="theme-color" content="#0a0613" />
+  <title>DCSA C++ Arena</title>
+  <link rel="icon" type="image/webp" href="assets/dcsa_logo.webp" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
@@ -12,14 +13,12 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="topbar">
+    <header class="titlebar">
       <div class="brand">
-        <span class="brand-mark">🐉</span>
-        <div class="brand-text">
-          <strong>Dragon CS Academy</strong>
-          <small>C++ Quiz Arena</small>
-        </div>
+        <img class="brand-logo" src="assets/dcsa_logo.webp" alt="" />
+        <span class="brand-name">DCSA C++ Arena</span>
       </div>
+      <div class="titlebar-spacer"></div>
       <div id="userChip" class="user-chip hidden">
         <img id="userAvatar" alt="" referrerpolicy="no-referrer" />
         <span id="userName"></span>
@@ -27,12 +26,19 @@
       </div>
     </header>
 
+    <nav class="tabs-bar" aria-label="Open files">
+      <span class="tab active" id="viewTab">
+        <span class="tab-icon" aria-hidden="true">C<sup>++</sup></span>
+        <span class="tab-name">leaderboard.cpp</span>
+      </span>
+    </nav>
+
     <main class="content">
 
       <!-- ============ LOGIN VIEW ============ -->
       <section id="view-login" class="view hidden">
         <div class="card hero">
-          <div class="hero-emoji">🐉</div>
+          <img class="hero-logo" src="assets/dcsa_logo.webp" alt="DCSA C++ Arena" />
           <h1>Welcome, future C++ wizard</h1>
           <p class="muted">Sign in with your Google account to join the quiz and climb the leaderboard.</p>
           <button id="googleSignInBtn" class="btn-google" type="button">
@@ -110,8 +116,16 @@
 
     </main>
 
-    <footer class="footer">
-      <small>Dragon CS Academy · C++ Quiz Arena</small>
+    <footer class="statusbar">
+      <span class="statusbar-item statusbar-ready">
+        <span class="statusbar-dot" aria-hidden="true"></span>
+        <span id="statusReady">Ready</span>
+      </span>
+      <span class="statusbar-item">main</span>
+      <span class="statusbar-spacer"></span>
+      <span class="statusbar-item">C++</span>
+      <span class="statusbar-item">UTF-8</span>
+      <span class="statusbar-item">DCSA C++ Arena</span>
     </footer>
   </div>
 

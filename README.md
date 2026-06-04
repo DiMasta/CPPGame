@@ -1,4 +1,4 @@
-# Dragon CS Academy — C++ Quiz Arena 🐉
+# DCSA C++ Arena 🐉
 
 A simple, mobile-friendly website for a C++ quiz game with a live leaderboard.
 
@@ -59,7 +59,7 @@ Because the app uses JavaScript modules, open it through a local web server (not
 
 **Option A — Python (already on most machines):**
 ```powershell
-cd C:\VLADO\DragonCSAcademy\CPPGame
+cd path\to\CPPGame
 python -m http.server 5500
 ```
 Then open <http://localhost:5500> in your browser.

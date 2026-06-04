@@ -1,5 +1,5 @@
 // ===========================================================================
-//  Dragon CS Academy — C++ Quiz Arena
+//  DCSA C++ Arena
 //  App logic: Google sign-in, nickname capture, live leaderboard.
 // ===========================================================================
 
@@ -36,10 +36,20 @@ const views = {
   leaderboard: document.getElementById("view-leaderboard"),
 };
 
+const VIEW_TAB_NAMES = {
+  loading: "loading.cpp",
+  configError: "setup-required.txt",
+  login: "welcome.cpp",
+  nickname: "register.cpp",
+  leaderboard: "leaderboard.cpp",
+};
+
 function showView(name) {
   for (const [key, el] of Object.entries(views)) {
     el.classList.toggle("hidden", key !== name);
   }
+  const tabName = document.querySelector("#viewTab .tab-name");
+  if (tabName) tabName.textContent = VIEW_TAB_NAMES[name] || "view.cpp";
 }
 
 const $ = (id) => document.getElementById(id);
