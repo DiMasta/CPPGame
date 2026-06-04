@@ -26,11 +26,8 @@
       </div>
     </header>
 
-    <nav class="tabs-bar" aria-label="Open files">
-      <span class="tab active" id="viewTab">
-        <span class="tab-icon" aria-hidden="true">C<sup>++</sup></span>
-        <span class="tab-name">leaderboard.cpp</span>
-      </span>
+    <nav class="tabs-bar" id="tabsBar" aria-label="Open files">
+      <!-- Tabs populated by app.js — single tab in pre-login views, dual nav after login. -->
     </nav>
 
     <main class="content">
@@ -76,6 +73,14 @@
 
       <!-- ============ LEADERBOARD VIEW ============ -->
       <section id="view-leaderboard" class="view hidden">
+        <button id="enterArenaBtn" class="btn-arena" type="button">
+          <span class="btn-arena-emoji" aria-hidden="true">⚔️</span>
+          <span class="btn-arena-text">
+            <span class="btn-arena-title">Enter the Arena</span>
+            <span class="btn-arena-sub">Answer C++ quiz questions · +1 point each</span>
+          </span>
+          <span class="btn-arena-arrow" aria-hidden="true">→</span>
+        </button>
         <div class="card">
           <div class="card-head">
             <h2>🏆 Leaderboard</h2>
@@ -96,6 +101,22 @@
             </table>
           </div>
           <p class="muted small">The board updates live as players earn points. 🟢</p>
+        </div>
+      </section>
+
+      <!-- ============ ARENA (QUIZ) VIEW ============ -->
+      <section id="view-arena" class="view hidden">
+        <div class="card">
+          <div class="card-head">
+            <h2>📝 What does this program print?</h2>
+            <span class="pill">Score: <span id="arenaScore">0</span></span>
+          </div>
+          <pre id="quizCode" class="code-block" aria-label="C++ code"></pre>
+          <div id="quizAnswers" class="answers-grid">
+            <!-- answer buttons injected by app.js -->
+          </div>
+          <div id="quizFeedback" class="feedback hidden" role="status"></div>
+          <button id="quizNextBtn" class="btn-primary hidden" type="button">Next question →</button>
         </div>
       </section>
 

@@ -1,6 +1,6 @@
 // ===========================================================================
 //  DCSA C++ Arena
-//  App logic: Google sign-in, nickname capture, live leaderboard.
+//  App logic: Google sign-in, nickname capture, leaderboard, quiz arena.
 // ===========================================================================
 
 import { firebaseConfig, isConfigured } from "./firebase-config.js";
@@ -18,6 +18,8 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
+  increment,
   collection,
   query,
   orderBy,
@@ -28,12 +30,15 @@ import {
 // ---------------------------------------------------------------------------
 //  View helpers
 // ---------------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+
 const views = {
   loading: document.getElementById("view-loading"),
   configError: document.getElementById("view-config-error"),
   login: document.getElementById("view-login"),
   nickname: document.getElementById("view-nickname"),
   leaderboard: document.getElementById("view-leaderboard"),
+  arena: document.getElementById("view-arena"),
 };
 
 const VIEW_TAB_NAMES = {
@@ -42,17 +47,47 @@ const VIEW_TAB_NAMES = {
   login: "welcome.cpp",
   nickname: "register.cpp",
   leaderboard: "leaderboard.cpp",
+  arena: "arena.cpp",
 };
+
+// In post-login views the tab strip is a navigation between these views.
+// In pre-login views only the current view's filename is shown.
+const NAV_VIEWS = ["arena", "leaderboard"];
+
+const quizState = { current: null };
 
 function showView(name) {
   for (const [key, el] of Object.entries(views)) {
     el.classList.toggle("hidden", key !== name);
   }
-  const tabName = document.querySelector("#viewTab .tab-name");
-  if (tabName) tabName.textContent = VIEW_TAB_NAMES[name] || "view.cpp";
+  renderTabs(name);
+  if (name === "arena" && !quizState.current) nextQuestion();
 }
 
-const $ = (id) => document.getElementById(id);
+function renderTabs(activeView) {
+  const tabsBar = $("tabsBar");
+  if (!tabsBar) return;
+
+  if (NAV_VIEWS.includes(activeView)) {
+    tabsBar.innerHTML = NAV_VIEWS.map(
+      (v) => `
+        <button class="tab clickable ${v === activeView ? "active" : ""}" data-view="${v}" type="button">
+          <span class="tab-icon" aria-hidden="true">C<sup>++</sup></span>
+          <span class="tab-name">${VIEW_TAB_NAMES[v]}</span>
+        </button>`
+    ).join("");
+    tabsBar.querySelectorAll("button.tab").forEach((btn) => {
+      btn.addEventListener("click", () => showView(btn.dataset.view));
+    });
+  } else {
+    const fname = VIEW_TAB_NAMES[activeView] || "view.cpp";
+    tabsBar.innerHTML = `
+      <span class="tab active">
+        <span class="tab-icon" aria-hidden="true">C<sup>++</sup></span>
+        <span class="tab-name">${fname}</span>
+      </span>`;
+  }
+}
 
 // ---------------------------------------------------------------------------
 //  Bail out early with a friendly message if Firebase isn't configured yet.
@@ -93,6 +128,7 @@ onAuthStateChanged(auth, async (user) => {
 
   if (!user) {
     teardownBoard();
+    quizState.current = null;
     $("userChip").classList.add("hidden");
     showView("login");
     return;
@@ -196,6 +232,10 @@ function renderBoard(players) {
   const count = players.length;
   $("playerCount").textContent = `${count} player${count === 1 ? "" : "s"}`;
 
+  // Keep the arena score display in sync with the live leaderboard data.
+  const me = players.find((p) => p.id === currentUser?.uid);
+  $("arenaScore").textContent = me ? Number(me.points) || 0 : 0;
+
   if (count === 0) {
     body.innerHTML =
       '<tr class="empty-row"><td colspan="3">No players yet — be the first! 🐉</td></tr>';
@@ -232,6 +272,126 @@ function renderBoard(players) {
     })
     .join("");
 }
+
+// ---------------------------------------------------------------------------
+//  Quiz Arena — "what does this print?" with a Hello World snippet
+// ---------------------------------------------------------------------------
+const HELLO_MESSAGES = [
+  "Hello Dragons!",
+  "Hello, World!",
+  "Greetings, mortals!",
+  "C++ is awesome!",
+  "Welcome to the Arena!",
+  "Dragons rule!",
+  "Code or perish!",
+  "Long live C++!",
+  "May the code be with you",
+  "Beware of segfaults",
+  "DCSA forever!",
+  "Quiz time!",
+];
+
+function pickN(arr, n, exclude) {
+  const pool = arr.filter((x) => !exclude.has(x));
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, n);
+}
+
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function nextQuestion() {
+  const correct = HELLO_MESSAGES[Math.floor(Math.random() * HELLO_MESSAGES.length)];
+  const distractors = pickN(HELLO_MESSAGES, 3, new Set([correct]));
+  quizState.current = {
+    correct,
+    options: shuffleInPlace([correct, ...distractors]),
+  };
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const { correct, options } = quizState.current;
+  $("quizCode").innerHTML = helloWorldSnippet(correct);
+  $("quizFeedback").className = "feedback hidden";
+  $("quizFeedback").textContent = "";
+  $("quizNextBtn").classList.add("hidden");
+
+  const labels = ["A", "B", "C", "D"];
+  $("quizAnswers").innerHTML = options
+    .map(
+      (opt, i) => `
+        <button class="answer-btn" data-option="${escapeAttr(opt)}" type="button">
+          <span class="answer-btn-label">${labels[i]}</span>
+          <span class="answer-btn-text">${escapeHtml(opt)}</span>
+        </button>`
+    )
+    .join("");
+  $("quizAnswers").querySelectorAll(".answer-btn").forEach((btn) => {
+    btn.addEventListener("click", () => onAnswer(btn));
+  });
+}
+
+// Build a VS-Dark-styled Hello World snippet with the given output message.
+function helloWorldSnippet(message) {
+  const msg = escapeHtml(message);
+  return [
+    `<span class="tk-pp">#include</span> <span class="tk-hdr">&lt;iostream&gt;</span>`,
+    ``,
+    `<span class="tk-kw">using</span> <span class="tk-kw">namespace</span> <span class="tk-id">std</span>;`,
+    ``,
+    `<span class="tk-kw">int</span> <span class="tk-fn">main</span>() {`,
+    `    <span class="tk-id">cout</span> &lt;&lt; <span class="tk-str">"${msg}"</span> &lt;&lt; <span class="tk-id">endl</span>;`,
+    `}`,
+  ].join("\n");
+}
+
+async function onAnswer(btn) {
+  const choice = btn.dataset.option;
+  const correct = quizState.current.correct;
+  const isCorrect = choice === correct;
+
+  // Lock the choices and mark right/wrong.
+  $("quizAnswers").querySelectorAll(".answer-btn").forEach((b) => {
+    b.disabled = true;
+    if (b.dataset.option === correct) b.classList.add("correct");
+    else if (b === btn) b.classList.add("incorrect");
+  });
+
+  const fb = $("quizFeedback");
+  if (isCorrect) {
+    fb.textContent = "🎯 Correct! +1 point";
+    fb.className = "feedback ok";
+  } else {
+    fb.textContent = `🐉 Not quite — the correct output was "${correct}"`;
+    fb.className = "feedback bad";
+  }
+
+  // Award the point. Firestore rules cap the increment at +1 per write.
+  if (isCorrect && currentUser) {
+    try {
+      await updateDoc(doc(db, "players", currentUser.uid), {
+        points: increment(1),
+      });
+    } catch (err) {
+      console.error("Failed to award point:", err);
+    }
+  }
+
+  $("quizNextBtn").classList.remove("hidden");
+}
+
+// "Enter the Arena" button on the leaderboard view.
+$("enterArenaBtn").addEventListener("click", () => showView("arena"));
+$("quizNextBtn").addEventListener("click", nextQuestion);
 
 // ---------------------------------------------------------------------------
 //  Small escaping helpers (nicknames are user input).

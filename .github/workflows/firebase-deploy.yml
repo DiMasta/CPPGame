@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting
+name: Deploy to Firebase
 
 # Auto-deploy the site whenever code is pushed to the main branch.
 on:
@@ -17,8 +17,8 @@ jobs:
       - name: Check out the code
         uses: actions/checkout@v4
 
-      - name: Deploy to Firebase Hosting
-        run: npx --yes firebase-tools@latest deploy --only hosting --project dcsa-cpp-game --non-interactive
+      - name: Deploy to Firebase Hosting and Firestore rules
+        run: npx --yes firebase-tools@latest deploy --only hosting,firestore:rules --project dcsa-cpp-game --non-interactive
         env:
           # Token is read automatically by the Firebase CLI from this env var.
           # Stored as a repository secret in GitHub (see README / setup steps).

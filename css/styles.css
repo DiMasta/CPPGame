@@ -167,6 +167,13 @@ body {
   cursor: default;
   transition: all 0.2s;
 }
+button.tab { font: inherit; margin: 0; }
+.tab.clickable { cursor: pointer; }
+.tab.clickable:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-soft);
+  border-color: var(--border);
+}
 .tab.active {
   background: linear-gradient(135deg, rgba(163, 113, 247, 0.18), rgba(88, 166, 255, 0.06));
   border-color: var(--border-hover);
@@ -545,6 +552,183 @@ tr.is-you:hover td {
   50%      { opacity: 0.7; transform: scale(0.85); }
 }
 
+/* ======================== Enter the Arena CTA ========================= */
+.btn-arena {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 22px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent-blue) 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--r-lg);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 10px 28px var(--primary-glow), 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.btn-arena::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(400px 100px at 80% 50%, rgba(255, 255, 255, 0.15), transparent 70%);
+  pointer-events: none;
+}
+.btn-arena:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: 0 14px 36px var(--primary-glow), 0 1px 0 rgba(255, 255, 255, 0.18) inset;
+}
+.btn-arena:active { transform: translateY(0); }
+.btn-arena-emoji {
+  font-size: 30px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
+}
+.btn-arena-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.btn-arena-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.btn-arena-sub {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.88;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.btn-arena-arrow {
+  font-size: 22px;
+  font-weight: 700;
+  opacity: 0.9;
+  transition: transform 0.2s ease;
+}
+.btn-arena:hover .btn-arena-arrow { transform: translateX(4px); }
+
+/* =========================== Code block (VS) ========================== */
+.code-block {
+  background: #1e1e1e;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 18px 22px;
+  margin: 0 0 20px;
+  font-family: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #d4d4d4;
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) inset;
+}
+/* VS Dark token colors. */
+.code-block .tk-pp  { color: #c586c0; }   /* preprocessor (#include) */
+.code-block .tk-kw  { color: #569cd6; }   /* keyword (using, namespace, int) */
+.code-block .tk-id  { color: #9cdcfe; }   /* identifier (std, cout, endl) */
+.code-block .tk-ty  { color: #4ec9b0; }   /* type */
+.code-block .tk-fn  { color: #dcdcaa; }   /* function name (main) */
+.code-block .tk-str { color: #ce9178; }   /* string literal */
+.code-block .tk-hdr { color: #ce9178; }   /* header in <> */
+.code-block .tk-num { color: #b5cea8; }   /* number */
+.code-block .tk-cmt { color: #6a9955; font-style: italic; }
+
+/* ============================ Answer grid ============================ */
+.answers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.answer-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-family: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s;
+}
+.answer-btn:hover:not(:disabled) {
+  background: rgba(163, 113, 247, 0.08);
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+.answer-btn:disabled { cursor: default; }
+.answer-btn-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  background: rgba(163, 113, 247, 0.18);
+  color: var(--primary-hi);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+  font-family: "Inter", sans-serif;
+  flex-shrink: 0;
+}
+.answer-btn-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #ce9178; /* String literal color — these ARE C++ strings. */
+}
+.answer-btn-text::before { content: '"'; opacity: 0.55; }
+.answer-btn-text::after  { content: '"'; opacity: 0.55; }
+.answer-btn.correct {
+  background: rgba(86, 211, 100, 0.10);
+  border-color: rgba(86, 211, 100, 0.50);
+}
+.answer-btn.correct .answer-btn-label {
+  background: rgba(86, 211, 100, 0.22);
+  color: var(--success);
+}
+.answer-btn.incorrect {
+  background: rgba(255, 123, 114, 0.10);
+  border-color: rgba(255, 123, 114, 0.50);
+}
+.answer-btn.incorrect .answer-btn-label {
+  background: rgba(255, 123, 114, 0.22);
+  color: var(--danger);
+}
+
+/* ============================== Feedback ============================== */
+.feedback {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  border: 1px solid transparent;
+}
+.feedback.ok {
+  background: rgba(86, 211, 100, 0.10);
+  border-color: rgba(86, 211, 100, 0.40);
+  color: var(--success);
+}
+.feedback.bad {
+  background: rgba(255, 123, 114, 0.10);
+  border-color: rgba(255, 123, 114, 0.40);
+  color: var(--danger);
+}
+
 /* ============================== Utility ================================ */
 .hidden { display: none !important; }
 
@@ -560,4 +744,10 @@ tr.is-you:hover td {
   .statusbar { gap: 6px; padding: 10px 4px 16px; }
   .statusbar-item:nth-child(n+4) { display: none; }
   .user-chip span#userName { max-width: 90px; }
+  .answers-grid { grid-template-columns: 1fr; }
+  .btn-arena { padding: 14px 16px; gap: 12px; }
+  .btn-arena-emoji { font-size: 24px; }
+  .btn-arena-title { font-size: 15px; }
+  .btn-arena-sub { font-size: 11px; }
+  .code-block { font-size: 13px; padding: 14px 16px; }
 }
