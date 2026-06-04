@@ -152,6 +152,35 @@ $("googleSignInBtn").addEventListener("click", async () => {
   }
 });
 
+// ---------------------------------------------------------------------------
+//  User menu (avatar popup)
+// ---------------------------------------------------------------------------
+$("userMenuToggle").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const menu = $("userMenu");
+  const willOpen = menu.classList.contains("hidden");
+  menu.classList.toggle("hidden");
+  $("userMenuToggle").setAttribute("aria-expanded", String(willOpen));
+});
+
+// Click anywhere outside closes the menu.
+document.addEventListener("click", (e) => {
+  const menu = $("userMenu");
+  if (menu.classList.contains("hidden")) return;
+  if (!$("userChip").contains(e.target)) {
+    menu.classList.add("hidden");
+    $("userMenuToggle").setAttribute("aria-expanded", "false");
+  }
+});
+
+// Esc closes the menu.
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    $("userMenu").classList.add("hidden");
+    $("userMenuToggle").setAttribute("aria-expanded", "false");
+  }
+});
+
 $("signOutBtn").addEventListener("click", () => {
   // Only clear the flag if we know it was set this session. Avoids the
   // wrong-overwrite race when the same account is signed in on another

@@ -20,9 +20,13 @@
       </div>
       <div class="titlebar-spacer"></div>
       <div id="userChip" class="user-chip hidden">
-        <img id="userAvatar" alt="" referrerpolicy="no-referrer" />
-        <span id="userName"></span>
-        <button id="signOutBtn" class="btn-ghost" type="button">Sign out</button>
+        <button id="userMenuToggle" class="user-avatar-btn" type="button" aria-label="Account menu" aria-haspopup="true" aria-expanded="false">
+          <img id="userAvatar" alt="" referrerpolicy="no-referrer" />
+        </button>
+        <div id="userMenu" class="user-menu hidden" role="menu">
+          <div class="user-menu-name" id="userName"></div>
+          <button id="signOutBtn" class="user-menu-item" type="button" role="menuitem">Sign out</button>
+        </div>
       </div>
     </header>
 

@@ -117,32 +117,88 @@ body {
 
 .titlebar-spacer { flex: 1; }
 
+/* User chip is just the avatar; clicking it pops a small menu (name + sign out). */
 .user-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--glass);
-  border: 1px solid var(--border);
-  padding: 4px 4px 4px 12px;
-  border-radius: var(--r-pill);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  position: relative;
 }
-.user-chip img {
-  width: 26px;
-  height: 26px;
+.user-avatar-btn {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 50%;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.user-avatar-btn img {
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   object-fit: cover;
   background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
 }
-.user-chip span#userName {
-  max-width: 180px;
+@media (hover: hover) {
+  .user-avatar-btn:hover img {
+    border-color: var(--border-hover);
+    box-shadow: 0 0 14px var(--primary-glow);
+  }
+}
+.user-avatar-btn:active img { transform: scale(0.96); }
+
+.user-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  max-width: calc(100vw - 16px);
+  background: linear-gradient(180deg, var(--surface-1) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  z-index: 100;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.user-menu-name {
+  padding: 10px 12px 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 4px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+}
+.user-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.user-menu-item:hover {
+  background: rgba(163, 113, 247, 0.10);
+  color: var(--text);
+}
+.user-menu-item:active {
+  background: rgba(163, 113, 247, 0.18);
 }
 
 /* ============================ Tab strip (VS nod) ======================= */
@@ -489,6 +545,8 @@ table.board td.col-points {
   margin-left: 8px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 /* Live "IN ARENA" presence tag — pulses softly to feel real-time. */
 .arena-tag {
@@ -502,6 +560,8 @@ table.board td.col-points {
   margin-left: 6px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  white-space: nowrap;
+  flex-shrink: 0;
   animation: arenaTagPulse 1.8s ease-in-out infinite;
 }
 @keyframes arenaTagPulse {
@@ -828,7 +888,7 @@ tr.is-you:hover td {
   .hero-logo { height: 100px; }
   .statusbar { gap: 6px; padding: 10px 4px 16px; }
   .statusbar-item:nth-child(n+4) { display: none; }
-  .user-chip span#userName { max-width: 90px; }
+  .user-avatar-btn img { width: 32px; height: 32px; }
   .answers-grid { grid-template-columns: 1fr; }
   .btn-arena { padding: 12px 14px; gap: 12px; min-height: 56px; }
   .btn-arena-emoji { font-size: 24px; }
