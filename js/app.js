@@ -158,6 +158,14 @@ function enterLeaderboard() {
     q,
     (snapshot) => {
       const players = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // Tie-break alphabetically by nickname (locale-aware, case-insensitive).
+      players.sort((a, b) => {
+        const pointsDiff = (Number(b.points) || 0) - (Number(a.points) || 0);
+        if (pointsDiff !== 0) return pointsDiff;
+        return String(a.nickname || "").localeCompare(String(b.nickname || ""), undefined, {
+          sensitivity: "base",
+        });
+      });
       renderBoard(players);
     },
     (err) => {
@@ -185,9 +193,14 @@ function renderBoard(players) {
   }
 
   const meId = currentUser?.uid;
+  let lastPoints = null;
+  let lastRank = 0;
   body.innerHTML = players
     .map((p, i) => {
-      const rank = i + 1;
+      const points = Number(p.points) || 0;
+      const rank = points === lastPoints ? lastRank : i + 1;
+      lastPoints = points;
+      lastRank = rank;
       const isYou = p.id === meId;
       const badgeClass = rank <= 3 ? `rank-badge rank-${rank}` : "rank-badge";
       const avatar = p.photoURL
@@ -204,7 +217,7 @@ function renderBoard(players) {
               ${youTag}
             </div>
           </td>
-          <td class="col-points">${Number(p.points) || 0}</td>
+          <td class="col-points">${points}</td>
         </tr>`;
     })
     .join("");
