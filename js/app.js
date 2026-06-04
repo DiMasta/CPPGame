@@ -4,7 +4,7 @@
 // ===========================================================================
 
 import { firebaseConfig, isConfigured } from "./firebase-config.js";
-import { QUESTIONS } from "./questions.js";
+import { generateQuestion } from "./questions.js";
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -298,19 +298,10 @@ function shuffleInPlace(arr) {
   return arr;
 }
 
-// Pick a random question without repeating the previous one.
-let lastQuestionIdx = -1;
-function pickRandomQuestion() {
-  let idx;
-  do {
-    idx = Math.floor(Math.random() * QUESTIONS.length);
-  } while (idx === lastQuestionIdx && QUESTIONS.length > 1);
-  lastQuestionIdx = idx;
-  return QUESTIONS[idx];
-}
-
 function nextQuestion() {
-  const q = pickRandomQuestion();
+  // questions.js handles random selection across generators + static bank
+  // and skips immediate repeats.
+  const q = generateQuestion();
   const correctText = q.options[q.correctIndex];
   quizState.current = {
     type:    q.type,
