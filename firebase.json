@@ -9,12 +9,21 @@
       "firestore.rules",
       "**/.*",
       "**/node_modules/**",
+      "scripts/**",
       "README.md"
     ],
     "rewrites": [
       {
         "source": "**",
         "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
       }
     ]
   }
