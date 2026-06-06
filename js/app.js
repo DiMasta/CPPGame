@@ -55,7 +55,10 @@ const VIEW_TAB_NAMES = {
 // In pre-login views only the current view's filename is shown.
 const NAV_VIEWS = ["arena", "leaderboard"];
 
-const quizState = { current: null, wrongCount: 0 };
+// `gen` is bumped every time a new question is loaded. It lets an in-flight
+// answer handler detect that the question was swapped out from under it (e.g.
+// by the focus-change anti-cheat) and bail instead of advancing on top of it.
+const quizState = { current: null, wrongCount: 0, gen: 0 };
 
 let currentViewName = null;
 
@@ -75,12 +78,19 @@ function showView(name) {
   refreshArenaPresence();
 }
 
+// "Active" = the tab is visible AND the window holds focus. The player has to
+// be actually looking at the page, not just have it open behind another tab,
+// window, or monitor. Shared by the leaderboard presence tag and the
+// anti-cheat question swap.
+function isWindowActive() {
+  return !document.hidden && document.hasFocus();
+}
+
 // The player counts as "in arena" only while they are on the arena view AND
-// actively looking at it: the tab is visible and the window has focus. This is
-// what stops the "In Arena" tag from lingering on the leaderboard when a
-// student opens the arena but then tabs away without playing.
+// actively looking at it. This is what stops the "In Arena" tag from lingering
+// on the leaderboard when a student opens the arena but then tabs away.
 function isArenaActive() {
-  return currentViewName === "arena" && !document.hidden && document.hasFocus();
+  return currentViewName === "arena" && isWindowActive();
 }
 
 function refreshArenaPresence() {
@@ -212,13 +222,45 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-// Drop / restore the "In Arena" presence as the arena tab loses or regains
-// focus. `visibilitychange` covers switching browser tabs and minimizing;
-// window blur/focus covers alt-tabbing to another application while the tab
-// stays visible. Each just recomputes presence from the current state.
-document.addEventListener("visibilitychange", refreshArenaPresence);
-window.addEventListener("blur", refreshArenaPresence);
-window.addEventListener("focus", refreshArenaPresence);
+// Last known focus state, tracked so we react once per *real* transition.
+// Switching browser tabs fires both `visibilitychange` and `blur`; without
+// this guard a single switch would be handled twice.
+let windowActive = isWindowActive();
+
+function handleFocusChange() {
+  const nowActive = isWindowActive();
+  if (nowActive === windowActive) return; // ignore duplicate / no-op events
+  windowActive = nowActive;
+
+  // Keep the leaderboard "In Arena" presence tag in sync with focus.
+  refreshArenaPresence();
+
+  // Anti-cheat: any focus transition while a question is on screen throws that
+  // question away (awarding nothing) and loads a fresh one.
+  //
+  //   • Leaving the tab — to screenshot or copy the question into an AI chat —
+  //     invalidates the question the student took with them.
+  //   • Returning invalidates anything they lined up on a second monitor while
+  //     the tab was unfocused (e.g. reading the answer off the visible-but-
+  //     unfocused arena, then clicking back in to answer).
+  //
+  // Net effect: a student can only ever answer a question that appeared while
+  // the arena tab was focused.
+  if (currentViewName === "arena" && quizState.current) {
+    nextQuestion(); // bumps quizState.gen, cancelling any in-flight advance
+    const fb = $("quizFeedback");
+    fb.textContent =
+      "🔄 The arena lost focus — new question loaded. No points for switching away.";
+    fb.className = "feedback bad";
+  }
+}
+
+// `visibilitychange` covers switching browser tabs and minimizing; window
+// blur/focus covers alt-tabbing to another application or monitor while the
+// tab stays visible. All funnel through the single transition handler.
+document.addEventListener("visibilitychange", handleFocusChange);
+window.addEventListener("blur", handleFocusChange);
+window.addEventListener("focus", handleFocusChange);
 
 // React to login state changes (this fires on page load too).
 onAuthStateChanged(auth, async (user) => {
@@ -416,6 +458,7 @@ function nextQuestion() {
     correct: correctText,
   };
   quizState.wrongCount = 0;
+  quizState.gen += 1;
   renderQuestion();
 }
 
@@ -576,7 +619,11 @@ async function onAnswer(btn) {
   if (award > 0) flashScore(award);
 
   // Hold on the green button for a moment, then slide to the next question.
+  // If the focus-change anti-cheat (or anything else) replaced the question
+  // while we waited, bail so we don't advance on top of the fresh one.
+  const gen = quizState.gen;
   await wait(1400);
+  if (quizState.gen !== gen) return;
   await transitionToNextQuestion();
 }
 
