@@ -78,19 +78,18 @@ function showView(name) {
   refreshArenaPresence();
 }
 
-// "Active" = the tab is visible AND the window holds focus. The player has to
-// be actually looking at the page, not just have it open behind another tab,
-// window, or monitor. Shared by the leaderboard presence tag and the
-// anti-cheat question swap.
-function isWindowActive() {
-  return !document.hidden && document.hasFocus();
-}
+// Whether the player is actively looking at the page right now. This is driven
+// by the focus/visibility events below (see setWindowActive) rather than read
+// from document.hasFocus(): hasFocus() is unreliable on mobile browsers — it
+// can report false even when the tab is in the foreground — which previously
+// broke both the presence tag and the anti-cheat swap on phones.
+let windowActive = !document.hidden;
 
 // The player counts as "in arena" only while they are on the arena view AND
 // actively looking at it. This is what stops the "In Arena" tag from lingering
 // on the leaderboard when a student opens the arena but then tabs away.
 function isArenaActive() {
-  return currentViewName === "arena" && isWindowActive();
+  return currentViewName === "arena" && windowActive;
 }
 
 function refreshArenaPresence() {
@@ -222,15 +221,15 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-// Last known focus state, tracked so we react once per *real* transition.
-// Switching browser tabs fires both `visibilitychange` and `blur`; without
-// this guard a single switch would be handled twice.
-let windowActive = isWindowActive();
-
-function handleFocusChange() {
-  const nowActive = isWindowActive();
-  if (nowActive === windowActive) return; // ignore duplicate / no-op events
-  windowActive = nowActive;
+// Set the active/inactive state from a focus or visibility event, reacting
+// only on a *real* transition. Each event type authoritatively reports the
+// new state (visible/hidden, focused/blurred) rather than us polling
+// document.hasFocus(), so this works on mobile where hasFocus() is unreliable.
+// Switching browser tabs fires both `visibilitychange` and `blur`; the
+// transition guard collapses that into a single swap.
+function setWindowActive(active) {
+  if (active === windowActive) return; // not a real transition — ignore
+  windowActive = active;
 
   // Keep the leaderboard "In Arena" presence tag in sync with focus.
   refreshArenaPresence();
@@ -238,11 +237,11 @@ function handleFocusChange() {
   // Anti-cheat: any focus transition while a question is on screen throws that
   // question away (awarding nothing) and loads a fresh one.
   //
-  //   • Leaving the tab — to screenshot or copy the question into an AI chat —
-  //     invalidates the question the student took with them.
-  //   • Returning invalidates anything they lined up on a second monitor while
-  //     the tab was unfocused (e.g. reading the answer off the visible-but-
-  //     unfocused arena, then clicking back in to answer).
+  //   • Leaving — to screenshot or copy the question into an AI chat, or
+  //     switching apps on a phone — invalidates the question they took.
+  //   • Returning invalidates anything they lined up while away (e.g. reading
+  //     the answer off a visible-but-unfocused arena on a second monitor, then
+  //     clicking back in to answer).
   //
   // Net effect: a student can only ever answer a question that appeared while
   // the arena tab was focused.
@@ -255,12 +254,13 @@ function handleFocusChange() {
   }
 }
 
-// `visibilitychange` covers switching browser tabs and minimizing; window
-// blur/focus covers alt-tabbing to another application or monitor while the
-// tab stays visible. All funnel through the single transition handler.
-document.addEventListener("visibilitychange", handleFocusChange);
-window.addEventListener("blur", handleFocusChange);
-window.addEventListener("focus", handleFocusChange);
+// `visibilitychange` is the reliable cross-platform signal — it fires on mobile
+// when switching tabs/apps or minimizing, and on desktop when switching tabs.
+// Window blur/focus additionally cover the desktop case of alt-tabbing to
+// another application or monitor while the tab stays visible.
+document.addEventListener("visibilitychange", () => setWindowActive(!document.hidden));
+window.addEventListener("blur", () => setWindowActive(false));
+window.addEventListener("focus", () => setWindowActive(true));
 
 // React to login state changes (this fires on page load too).
 onAuthStateChanged(auth, async (user) => {
