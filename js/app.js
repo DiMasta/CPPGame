@@ -60,24 +60,36 @@ const quizState = { current: null, wrongCount: 0 };
 let currentViewName = null;
 
 function showView(name) {
-  const wasArena = currentViewName === "arena";
-  const isArena = name === "arena";
-
   for (const [key, el] of Object.entries(views)) {
     el.classList.toggle("hidden", key !== name);
   }
   renderTabs(name);
-  if (isArena && !quizState.current) nextQuestion();
-
-  // Reflect arena presence on the player's doc ONLY on actual transitions
-  // in or out of arena. Writing on every view change (including the initial
-  // sign-in landing on leaderboard) creates a race where one device's
-  // "leaderboard" arrival overwrites another device's "in arena" flag for
-  // the same user.
-  if (isArena && !wasArena) setInArenaFlag(true);
-  else if (!isArena && wasArena) setInArenaFlag(false);
+  if (name === "arena" && !quizState.current) nextQuestion();
 
   currentViewName = name;
+
+  // Reflect arena presence on the player's doc. Recomputed (rather than only
+  // toggled on view transitions) so that losing focus on the arena tab —
+  // switching browser tabs, minimizing, or alt-tabbing to another app — also
+  // clears the flag even though the arena view is still technically open.
+  refreshArenaPresence();
+}
+
+// The player counts as "in arena" only while they are on the arena view AND
+// actively looking at it: the tab is visible and the window has focus. This is
+// what stops the "In Arena" tag from lingering on the leaderboard when a
+// student opens the arena but then tabs away without playing.
+function isArenaActive() {
+  return currentViewName === "arena" && !document.hidden && document.hasFocus();
+}
+
+function refreshArenaPresence() {
+  const active = isArenaActive();
+  // Only ever clear the flag if THIS device set it this session. Writing
+  // `false` from a non-arena context would otherwise clobber an "in arena"
+  // state owned by the same account signed in on another device.
+  if (!active && lastWrittenInArena !== true) return;
+  setInArenaFlag(active);
 }
 
 function renderTabs(activeView) {
@@ -199,6 +211,14 @@ window.addEventListener("beforeunload", () => {
     setInArenaFlag(false).catch(() => {});
   }
 });
+
+// Drop / restore the "In Arena" presence as the arena tab loses or regains
+// focus. `visibilitychange` covers switching browser tabs and minimizing;
+// window blur/focus covers alt-tabbing to another application while the tab
+// stays visible. Each just recomputes presence from the current state.
+document.addEventListener("visibilitychange", refreshArenaPresence);
+window.addEventListener("blur", refreshArenaPresence);
+window.addEventListener("focus", refreshArenaPresence);
 
 // React to login state changes (this fires on page load too).
 onAuthStateChanged(auth, async (user) => {
