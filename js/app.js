@@ -62,6 +62,17 @@ const quizState = { current: null, wrongCount: 0, gen: 0 };
 
 let currentViewName = null;
 
+// The signed-in player's current point total, mirrored locally. While the
+// player is in the arena the live leaderboard listener is detached (to save
+// Firestore reads), so the in-arena score chip is driven from this value and
+// reconciled with the authoritative server total whenever the leaderboard
+// listener delivers a snapshot.
+let myScore = 0;
+
+function renderMyScore() {
+  $("arenaScore").textContent = myScore;
+}
+
 function showView(name) {
   for (const [key, el] of Object.entries(views)) {
     el.classList.toggle("hidden", key !== name);
@@ -76,6 +87,15 @@ function showView(name) {
   // switching browser tabs, minimizing, or alt-tabbing to another app — also
   // clears the flag even though the arena view is still technically open.
   refreshArenaPresence();
+
+  // Attach the live leaderboard listener ONLY while the leaderboard is on
+  // screen. A student playing in the arena doesn't need live standings, and
+  // every connected listener turns each other player's points write into a
+  // billed Firestore read for this client. Detaching in the arena (where
+  // students spend most of their time) keeps read usage low enough for a full
+  // classroom to stay on the free tier.
+  if (name === "leaderboard") attachBoard();
+  else teardownBoard();
 }
 
 // Whether the player is actively looking at the page right now. This is driven
@@ -271,6 +291,7 @@ onAuthStateChanged(auth, async (user) => {
     quizState.current = null;
     lastWrittenInArena = null;
     currentViewName = null;
+    myScore = 0;
     $("userChip").classList.add("hidden");
     $("arenaScoreChip").classList.add("hidden");
     showView("login");
@@ -337,11 +358,16 @@ $("nicknameForm").addEventListener("submit", async (e) => {
 // ---------------------------------------------------------------------------
 //  Leaderboard (live)
 // ---------------------------------------------------------------------------
+// Navigating to the leaderboard view also (re)attaches the listener — see
+// showView, which owns the listener lifecycle.
 function enterLeaderboard() {
   showView("leaderboard");
+}
 
-  // Avoid stacking multiple listeners.
-  teardownBoard();
+// Attach the live leaderboard listener. Idempotent: a no-op if already
+// attached, so re-entering the leaderboard view never stacks listeners.
+function attachBoard() {
+  if (unsubscribeBoard || !currentUser) return;
 
   const q = query(collection(db, "players"), orderBy("points", "desc"));
   unsubscribeBoard = onSnapshot(
@@ -376,9 +402,12 @@ function renderBoard(players) {
   const count = players.length;
   $("playerCount").textContent = `${count} player${count === 1 ? "" : "s"}`;
 
-  // Keep the arena score display in sync with the live leaderboard data.
+  // Reconcile the local score with the authoritative server total. This is the
+  // source of truth; the in-arena chip's local increments are a stand-in while
+  // the listener is detached, corrected here on return to the leaderboard.
   const me = players.find((p) => p.id === currentUser?.uid);
-  $("arenaScore").textContent = me ? Number(me.points) || 0 : 0;
+  myScore = me ? Number(me.points) || 0 : 0;
+  renderMyScore();
 
   if (count === 0) {
     body.innerHTML =
@@ -614,6 +643,11 @@ async function onAnswer(btn) {
       fb.className = "feedback bad";
       return; // don't auto-advance if the write failed
     }
+    // Reflect the award on the score chip right away. In the arena the
+    // leaderboard listener is detached, so without this the chip wouldn't move
+    // until the player returns to the leaderboard and the snapshot reconciles.
+    myScore += award;
+    renderMyScore();
   }
 
   if (award > 0) flashScore(award);
