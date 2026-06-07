@@ -723,6 +723,19 @@ tr.is-you:hover td {
 }
 
 /* =========================== Code block (VS) ========================== */
+/* Anti-cheat: make the question, code, and answers unselectable so a student
+   can't drag-select or long-press to copy the prompt into an AI tool. Covers
+   the whole arena card; the score chip lives in the titlebar, outside it. The
+   -webkit- prefixes matter for Safari/iOS, and -webkit-touch-callout disables
+   the iOS long-press copy/define menu. */
+#view-arena .card {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .code-block {
   background: #1e1e1e;
   border: 1px solid var(--border);
