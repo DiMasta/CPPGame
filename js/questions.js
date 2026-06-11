@@ -1261,6 +1261,163 @@ int main() {
 }
 
 // ---------------------------------------------------------------------------
+//  POWERS OF TWO  (💡 theory — 2^n, and how many values fit in n bits)
+// ---------------------------------------------------------------------------
+function genPowerOfTwo() {
+  const n = rand(0, 10);
+  const correct = 2 ** n;
+  const distractors = new Set();
+  // Classic confusions first: 2*n and n^2; then the neighbor powers.
+  for (const cand of [2 * n, n * n, 2 ** (n + 1), n >= 1 ? 2 ** (n - 1) : -1, correct + 1]) {
+    if (cand >= 0 && cand !== correct) distractors.add(cand);
+    if (distractors.size >= 3) break;
+  }
+  for (let k = 2; distractors.size < 3; k++) distractors.add(correct + k);
+  return {
+    type: "theory",
+    prompt: `What is 2 to the power of ${n} (2^${n})?`,
+    options: [String(correct), ...Array.from(distractors).slice(0, 3).map(String)],
+    correctIndex: 0,
+  };
+}
+
+function genPowerOfTwoReverse() {
+  const n = rand(2, 10);
+  const distractors = new Set([n - 1, n + 1]);
+  distractors.add(n === 2 ? 4 : 2 ** n); // the value itself as a trap exponent
+  return {
+    type: "theory",
+    prompt: `2 to the power of WHAT equals ${2 ** n}?`,
+    options: [String(n), ...Array.from(distractors).slice(0, 3).map(String)],
+    correctIndex: 0,
+  };
+}
+
+// How many values fit in n bits, and the largest unsigned value — straight
+// from the lesson table (e.g. 3 bits: 8 values, maximum 7).
+function genBitsCapacity() {
+  const n = rand(2, 8);
+  const howMany = Math.random() < 0.5;
+  const correct = howMany ? 2 ** n : 2 ** n - 1;
+  const distractors = new Set();
+  for (const cand of [howMany ? 2 ** n - 1 : 2 ** n, 2 * n, 2 ** (n - 1), correct + 1]) {
+    if (cand >= 0 && cand !== correct) distractors.add(cand);
+    if (distractors.size >= 3) break;
+  }
+  for (let k = 2; distractors.size < 3; k++) distractors.add(correct + k);
+  return {
+    type: "theory",
+    prompt: howMany
+      ? `How many different values can ${n} bits represent?`
+      : `What is the LARGEST number that fits in ${n} bits (unsigned, no two's complement)?`,
+    options: [String(correct), ...Array.from(distractors).slice(0, 3).map(String)],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  ASCII TABLE  (💡 theory + 📝 output — chars are small numbers)
+// ---------------------------------------------------------------------------
+const ASCII_ANCHORS = [
+  { ch: "A", code: 65, alphabet: "ABCDEFGH" },
+  { ch: "a", code: 97, alphabet: "abcdefgh" },
+  { ch: "0", code: 48, alphabet: "01234567" },
+];
+
+const ASCII_FACTS = [
+  { prompt: "What is the ASCII code of the character 'A'?",
+    correct: "65", distractors: ["97", "64", "66"] },
+  { prompt: "What is the ASCII code of the character 'a'?",
+    correct: "97", distractors: ["65", "96", "98"] },
+  { prompt: "What is the ASCII code of the character '0' (the digit zero)?",
+    correct: "48", distractors: ["0", "47", "49"] },
+  { prompt: "Which character has ASCII code 32?",
+    correct: "The space character ' '",
+    distractors: ["The digit '2'", "The letter 'a'", "The newline character"] },
+  { prompt: "In the ASCII table, which of these comes FIRST (has the smallest code)?",
+    correct: "The digits '0'-'9'",
+    distractors: ["The uppercase letters 'A'-'Z'", "The lowercase letters 'a'-'z'", "They are all mixed together"] },
+];
+
+function genAsciiFact() {
+  const f = pick(ASCII_FACTS);
+  return {
+    type: "theory",
+    prompt: f.prompt,
+    options: [f.correct, ...f.distractors],
+    correctIndex: 0,
+  };
+}
+
+// "'A' is 65 — what is 'E'?" Counting forward from a known anchor.
+function genAsciiOffset() {
+  const a = pick(ASCII_ANCHORS);
+  const off = rand(1, 7);
+  const target = a.alphabet[off];
+  const correct = a.code + off;
+  return {
+    type: "theory",
+    prompt: `The ASCII code of '${a.ch}' is ${a.code}. What is the ASCII code of '${target}'?`,
+    options: [String(correct), ...offsets(correct, 3, 3).map(String)],
+    correctIndex: 0,
+  };
+}
+
+// Storing a char in an int prints its ASCII code.
+function genAsciiCharToInt() {
+  const a = pick(ASCII_ANCHORS);
+  const off = rand(0, 7);
+  const ch = a.alphabet[off];
+  const correct = a.code + off;
+  const distractors = new Set([ch]); // trap: "it prints the character"
+  for (const o of offsets(correct, 4, 3)) {
+    if (distractors.size >= 3) break;
+    distractors.add(String(o));
+  }
+  return {
+    type: "output",
+    prompt: `What does this program print? (The ASCII code of '${a.ch}' is ${a.code}.)`,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int code = '${ch}';
+    cout << code << endl;
+}`,
+    options: [String(correct), ...distractors],
+    correctIndex: 0,
+  };
+}
+
+// Storing a number in a char prints the character with that ASCII code.
+function genAsciiCodeToChar() {
+  const a = pick(ASCII_ANCHORS);
+  const off = rand(0, 7);
+  const correct = a.alphabet[off];
+  const code = a.code + off;
+  const distractors = new Set([String(code)]); // trap: "it prints the number"
+  for (const c of pickN(a.alphabet.split("").filter((c) => c !== correct), 4)) {
+    if (distractors.size >= 3) break;
+    distractors.add(c);
+  }
+  return {
+    type: "output",
+    prompt: `What does this program print? (The ASCII code of '${a.ch}' is ${a.code}.)`,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    char c = ${code};
+    cout << c << endl;
+}`,
+    options: [correct, ...distractors],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 //  STRINGS & CHAR  (📝)
 // ---------------------------------------------------------------------------
 function genStringConcat() {
@@ -1925,6 +2082,17 @@ const SOURCES = [
   { weight: 18, fn: genScopeBlockOutput },
   { weight: 18, fn: genScopeSiblingBlocks },
   { weight: 18, fn: genScopeNestedBlocks },
+
+  // ---- Powers of two (theory) ----
+  { weight: 18, fn: genPowerOfTwo },
+  { weight: 15, fn: genPowerOfTwoReverse },
+  { weight: 15, fn: genBitsCapacity },
+
+  // ---- ASCII table (theory + output) ----
+  { weight: 15, fn: genAsciiFact },
+  { weight: 15, fn: genAsciiOffset },
+  { weight: 15, fn: genAsciiCharToInt },
+  { weight: 15, fn: genAsciiCodeToChar },
 
   // ---- Theory / static specials (incl. computer parts, game-loop theory) ----
   // Single source that uniformly picks from the static bank.
