@@ -87,6 +87,38 @@ int main() {
   };
 }
 
+function genSingleNumber() {
+  const n = rand(0, 99);
+  const v = pick(["x", "n", "num", "value", "a", "score"]);
+  // Two variations: print the literal directly, or through a variable.
+  const direct = Math.random() < 0.5;
+  const code = direct
+    ? `#include <iostream>
+using namespace std;
+
+int main() {
+    cout << ${n} << endl;
+}`
+    : `#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = ${n};
+    cout << ${v} << endl;
+}`;
+  // For the variable form, the classic beginner trap — "it prints the
+  // variable's name" — replaces one numeric distractor.
+  const distractors = direct
+    ? offsets(n, 3).map(String)
+    : [v, ...offsets(n, 2).map(String)];
+  return {
+    type: "output",
+    code,
+    options: [String(n), ...distractors],
+    correctIndex: 0,
+  };
+}
+
 function genSimpleArithmetic() {
   const op = pick(["+", "-", "*"]);
   const a = rand(1, 20);
@@ -1548,6 +1580,7 @@ int main() {
 const SOURCES = [
   // ---- Output: basics ----
   { weight: 25, fn: genHelloWorld },
+  { weight: 20, fn: genSingleNumber },
   { weight: 30, fn: genSimpleArithmetic },
   { weight: 30, fn: genVariableArith },
   { weight: 20, fn: genPrecedence },
