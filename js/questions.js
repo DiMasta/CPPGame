@@ -1146,6 +1146,121 @@ function genBinaryToDecimal() {
 }
 
 // ---------------------------------------------------------------------------
+//  SCOPES & BLOCKS  (📝 — variables living inside { } blocks)
+//  Values are 0b literals half the time, tying into the binary lessons.
+// ---------------------------------------------------------------------------
+function scopeValue() {
+  const n = rand(2, 15);
+  const binary = Math.random() < 0.5;
+  return { n, lit: binary ? `0b${n.toString(2).padStart(4, "0")}` : String(n) };
+}
+
+// One block: either the variable is declared inside it, or it's declared in
+// main and only printed inside the block (outer variables are visible).
+function genScopeBlockOutput() {
+  const v = pick(["a", "x", "n", "value"]);
+  const { n, lit } = scopeValue();
+  const declaredInside = Math.random() < 0.5;
+  const code = declaredInside
+    ? `#include <iostream>
+using namespace std;
+
+int main() {
+    {
+        int ${v} = ${lit};
+        cout << ${v} << endl;
+    }
+}`
+    : `#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = ${lit};
+
+    {
+        cout << ${v} << endl;
+    }
+}`;
+  const distractors = new Set([
+    `Nothing — '${v}' is not visible inside the block`,
+  ]);
+  for (let k = 1; distractors.size < 3; k++) {
+    distractors.add(String(n + k));
+  }
+  return {
+    type: "output",
+    code,
+    options: [String(n), ...distractors],
+    correctIndex: 0,
+  };
+}
+
+// Two sibling blocks may each declare their own variable with the SAME name —
+// unlike two declarations in one scope, this is perfectly legal.
+function genScopeSiblingBlocks() {
+  const v = pick(["a", "x", "n", "value"]);
+  const first = scopeValue();
+  let second = scopeValue();
+  while (second.n === first.n) second = scopeValue();
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    {
+        int ${v} = ${first.lit};
+        cout << ${v} << endl;
+    }
+
+    {
+        int ${v} = ${second.lit};
+        cout << ${v} << endl;
+    }
+}`,
+    options: [
+      `${first.n}\n${second.n}`,                                   // correct
+      `Nothing — '${v}' is declared twice, the program does not compile`, // the redeclare trap
+      `${second.n}\n${first.n}`,                                   // reversed
+      `${first.n}\n${first.n}`,                                    // first value twice
+    ],
+    correctIndex: 0,
+  };
+}
+
+// A variable declared in main is visible in nested blocks, however deep.
+function genScopeNestedBlocks() {
+  const v = pick(["a", "x", "n", "value"]);
+  const { n, lit } = scopeValue();
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = ${lit};
+
+    {
+        cout << ${v} << endl;
+
+        {
+            cout << ${v} << endl;
+        }
+    }
+}`,
+    options: [
+      `${n}\n${n}`,                                              // correct
+      `${n}`,                                                    // only once
+      `Nothing — '${v}' is not visible inside the blocks`,       // visibility trap
+      `${v}\n${v}`,                                              // prints the name
+    ],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 //  STRINGS & CHAR  (📝)
 // ---------------------------------------------------------------------------
 function genStringConcat() {
@@ -1805,6 +1920,11 @@ const SOURCES = [
   { weight: 18, fn: genDecimalToBinary },
   { weight: 18, fn: genBinaryToDecimal },
   { weight: 18, fn: genBinaryLiteralOutput },
+
+  // ---- Output: scopes & blocks ----
+  { weight: 18, fn: genScopeBlockOutput },
+  { weight: 18, fn: genScopeSiblingBlocks },
+  { weight: 18, fn: genScopeNestedBlocks },
 
   // ---- Theory / static specials (incl. computer parts, game-loop theory) ----
   // Single source that uniformly picks from the static bank.
