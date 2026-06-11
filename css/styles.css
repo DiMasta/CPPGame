@@ -736,6 +736,15 @@ tr.is-you:hover td {
   -webkit-touch-callout: none;
 }
 
+/* Code fonts (Cascadia, JetBrains Mono) merge operators like >=, <=, ==, !=
+   into single ligature glyphs by default. Students must learn these as TWO
+   characters, so ligatures are disabled wherever code is displayed. */
+.code-block,
+.answer-btn {
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0, "dlig" 0;
+}
+
 .code-block {
   background: #1e1e1e;
   border: 1px solid var(--border);
