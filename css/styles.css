@@ -316,6 +316,36 @@ button.tab { font: inherit; margin: 0; }
 }
 .card-head .pill { flex-shrink: 0; }
 
+/* Complex questions: a warm gold treatment so they read as "harder, worth
+   more". Applied to the arena card when the current question is complex. */
+.card.complex-active {
+  border-color: rgba(251, 191, 36, 0.55);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.10) 0%, rgba(251, 191, 36, 0.03) 100%),
+    linear-gradient(180deg, var(--surface-1) 0%, var(--surface-2) 100%);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(251, 191, 36, 0.25),
+              0 0 28px rgba(251, 191, 36, 0.12);
+}
+.card.complex-active::before {
+  background: linear-gradient(90deg, transparent, var(--gold), #fde68a, transparent);
+  opacity: 0.9;
+}
+.complex-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #fde68a;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  white-space: nowrap;
+}
+
 .muted {
   color: var(--text-muted);
   margin: 0 0 20px;

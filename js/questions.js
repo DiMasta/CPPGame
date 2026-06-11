@@ -2554,6 +2554,122 @@ int main() {
 }
 
 // ---------------------------------------------------------------------------
+//  COMPLEX  (✦ harder, multi-step programs — worth more points)
+//  These carry `complex: true`, which the app uses to award more points and
+//  to style the question differently.
+// ---------------------------------------------------------------------------
+
+// Nested while loops: the inner loop prints a char N times (no newline), the
+// outer loop repeats that line M times. -> M lines of N copies of the char.
+function genNestedWhileChar() {
+  const outer = rand(2, 4);
+  let inner = rand(2, 4);
+  while (inner === outer) inner = rand(2, 4); // distinct so the "swapped" option differs
+  const ch = pick(["A", "X", "*", "#", "o"]);
+  const line = ch.repeat(inner);
+  const correct = Array(outer).fill(line).join("\n");
+  return {
+    type: "output",
+    complex: true,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int outer = ${outer};
+    while (outer > 0) {
+        int inner = ${inner};
+        while (inner > 0) {
+            cout << '${ch}';
+            --inner;
+        }
+        cout << endl;
+        --outer;
+    }
+}`,
+    options: [
+      correct,                                            // correct: outer lines of inner chars
+      ch.repeat(outer * inner),                           // all on one line (forgot the endl)
+      Array(inner).fill(ch.repeat(outer)).join("\n"),     // outer/inner swapped
+      Array(outer).fill(ch.repeat(inner - 1) || ch).join("\n"), // off-by-one inner count
+    ],
+    correctIndex: 0,
+  };
+}
+
+// Nested for loops building a multiplication-style count: the program prints
+// the running total of inner iterations across the whole nest.
+function genNestedForCount() {
+  const rows = rand(2, 5);
+  const cols = rand(2, 5);
+  const total = rows * cols;
+  const distractors = new Set();
+  for (const cand of [rows + cols, total + 1, (rows - 1) * cols, total - 1]) {
+    if (cand > 0 && cand !== total) distractors.add(String(cand));
+    if (distractors.size >= 3) break;
+  }
+  for (let k = 2; distractors.size < 3; k++) distractors.add(String(total + k));
+  const out = Array.from(distractors).slice(0, 3);
+  return {
+    type: "behavior",
+    complex: true,
+    prompt: "How many times does the program print a star?",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int count = 0;
+    for (int r = 0; r < ${rows}; ++r) {
+        for (int c = 0; c < ${cols}; ++c) {
+            cout << '*';
+            ++count;
+        }
+    }
+    cout << endl;
+}`,
+    options: [String(total), ...out.slice(0, 3)],
+    correctIndex: 0,
+  };
+}
+
+// A nested loop that accumulates a sum, then prints it.
+function genNestedSum() {
+  const n = rand(2, 4);
+  // sum over i=1..n of (i added j=1..i times) = sum of i*i  -> but keep it
+  // concrete: inner adds 1 each step, so total = n*(n+1)/2 triangular number.
+  let total = 0;
+  for (let i = 1; i <= n; i++) for (let j = 1; j <= i; j++) total += 1;
+  const correct = total; // = n*(n+1)/2
+  const distractors = new Set();
+  for (const cand of [n * n, n, n * (n + 1), correct + 1]) {
+    if (cand > 0 && cand !== correct) distractors.add(String(cand));
+    if (distractors.size >= 3) break;
+  }
+  for (let k = 2; distractors.size < 3; k++) distractors.add(String(correct + k));
+  const out = Array.from(distractors).slice(0, 3);
+  return {
+    type: "output",
+    complex: true,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int sum = 0;
+    for (int i = 1; i <= ${n}; ++i) {
+        for (int j = 1; j <= i; ++j) {
+            sum = sum + 1;
+        }
+    }
+    cout << sum << endl;
+}`,
+    options: [String(correct), ...out.slice(0, 3)],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 //  GAME DEV — game-loop flavored  (📝)
 // ---------------------------------------------------------------------------
 function genGameLoopLives() {
@@ -2977,6 +3093,11 @@ const SOURCES = [
   // ---- Output: game-dev (game loop) ----
   { weight: 18, fn: genGameLoopLives },
   { weight: 15, fn: genGameScore },
+
+  // ---- Complex (nested loops; worth 10 points, styled differently) ----
+  { weight: 14, fn: genNestedWhileChar },
+  { weight: 12, fn: genNestedForCount },
+  { weight: 12, fn: genNestedSum },
 
   // ---- Mistake ----
   { weight: 50, fn: genMissingSemicolon },

@@ -481,6 +481,7 @@ function nextQuestion() {
   const correctText = q.options[q.correctIndex];
   quizState.current = {
     type:    q.type,
+    complex: !!q.complex,
     prompt:  q.prompt || DEFAULT_PROMPTS[q.type] || "Pick the correct answer",
     code:    q.code || "",
     options: shuffleInPlace([...q.options]),
@@ -492,10 +493,17 @@ function nextQuestion() {
 }
 
 function renderQuestion() {
-  const { type, prompt, code, options } = quizState.current;
+  const { type, complex, prompt, code, options } = quizState.current;
 
-  // Prompt with type icon.
-  $("quizPrompt").textContent = `${TYPE_ICONS[type] || "📝"} ${prompt}`;
+  // Complex questions get a gold look and a badge, and are worth more points.
+  const card = $("arenaCard");
+  if (card) card.classList.toggle("complex-active", complex);
+  const badge = $("complexBadge");
+  if (badge) badge.classList.toggle("hidden", !complex);
+
+  // Prompt with an icon — a gem for complex questions, else the type icon.
+  const icon = complex ? "💎" : (TYPE_ICONS[type] || "📝");
+  $("quizPrompt").textContent = `${icon} ${prompt}`;
 
   // Code block — hidden when the question has no code (e.g. most theory).
   const codeEl = $("quizCode");
@@ -625,12 +633,13 @@ async function onAnswer(btn) {
     b.disabled = true;
   });
 
-  // Award by tries: 5 on the first shot, 1 on the second, 0 after that.
-  const AWARD_BY_WRONGS = [5, 1, 0];
+  // Award by tries. Complex questions are worth more (10 on the first shot);
+  // normal questions give 5 / 1 / 0.
+  const AWARD_BY_WRONGS = quizState.current.complex ? [10, 2, 0] : [5, 1, 0];
   const award = AWARD_BY_WRONGS[Math.min(quizState.wrongCount, AWARD_BY_WRONGS.length - 1)];
 
   // Save the points. Skip the write entirely when the answer earns nothing
-  // (Firestore rules allow an increment of +1..5, or leaving points unchanged).
+  // (Firestore rules allow an increment of +1..10, or leaving points unchanged).
   if (currentUser && award > 0) {
     try {
       await updateDoc(doc(db, "players", currentUser.uid), {
