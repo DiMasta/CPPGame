@@ -287,6 +287,137 @@ int main() {
   };
 }
 
+// Two variables declared, but only ONE is printed — the other value is the
+// trap distractor.
+function genTwoVarPickOne() {
+  const [v1, v2] = pick([["a", "b"], ["x", "y"], ["p", "q"], ["first", "second"]]);
+  const a = rand(10, 99);
+  let b = rand(10, 99);
+  if (b === a) b = a + 1;
+  const printSecond = Math.random() < 0.5;
+  const target = printSecond ? v2 : v1;
+  const targetVal = printSecond ? b : a;
+  const otherVal = printSecond ? a : b;
+  const distractors = new Set([String(otherVal)]); // the other variable
+  for (const o of offsets(targetVal, 6)) {
+    if (o > 0 && o !== targetVal && o !== otherVal) distractors.add(String(o));
+    if (distractors.size >= 3) break;
+  }
+  for (let k = 1; distractors.size < 3; k++) {
+    if (targetVal + k !== otherVal) distractors.add(String(targetVal + k));
+  }
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v1} = ${a};
+    int ${v2} = ${b};
+    cout << ${target} << endl;
+}`,
+    options: [String(targetVal), ...Array.from(distractors).slice(0, 3)],
+    correctIndex: 0,
+  };
+}
+
+// Two variables streamed back-to-back: cout << b << a; -> their digits joined.
+function genTwoVarConcat() {
+  const [v1, v2] = pick([["a", "b"], ["x", "y"], ["p", "q"]]);
+  const a = rand(10, 99);
+  let b = rand(10, 99);
+  if (b === a) b = a + 1;
+  const [fName, fVal, sName, sVal] = Math.random() < 0.5 ? [v1, a, v2, b] : [v2, b, v1, a];
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v1} = ${a};
+    int ${v2} = ${b};
+    cout << ${fName} << ${sName} << endl;
+}`,
+    options: [
+      `${fVal}${sVal}`,        // correct — printed back-to-back
+      String(fVal + sVal),     // misconception: '<<' adds them
+      `${sVal}${fVal}`,        // reversed order
+      `${fVal} ${sVal}`,       // misconception: a space between them
+    ],
+    correctIndex: 0,
+  };
+}
+
+// Variables are declared but never printed — 'cout << endl;' just prints a
+// blank line.
+function genCoutEndlOnly() {
+  const [v1, v2] = pick([["a", "b"], ["x", "y"], ["p", "q"]]);
+  const a = rand(10, 99);
+  let b = rand(10, 99);
+  if (b === a) b = a + 1;
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v1} = ${a};
+    int ${v2} = ${b};
+
+    cout << endl;
+}`,
+    options: [
+      "An empty line — neither variable is printed",
+      `${a}`,
+      `${b}`,
+      `${a} ${b}`,
+    ],
+    correctIndex: 0,
+  };
+}
+
+// A mix of char and string variables concatenated across several cout lines,
+// using a 'space' char to separate words. Teaches char vs string and how
+// successive '<<' (with no endl) stay on one line.
+function genCharStringConcat() {
+  const sets = [
+    { w1: "Dragon", w2: "Academy", c1: "C", c2: "S" },
+    { w1: "Hello",  w2: "World",   c1: "O", c2: "K" },
+    { w1: "Game",   w2: "Start",   c1: "G", c2: "O" },
+    { w1: "Code",   w2: "Arena",   c1: "C", c2: "A" },
+  ];
+  const s = pick(sets);
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    char space = ' ';
+    char c1 = '${s.c1}';
+    char c2 = '${s.c2}';
+    string w1 = "${s.w1}";
+    string w2 = "${s.w2}";
+
+    cout << w1 << space;
+    cout << c1 << c2 << space;
+    cout << w2;
+    cout << endl;
+}`,
+    options: [
+      `${s.w1} ${s.c1}${s.c2} ${s.w2}`,        // correct
+      `${s.w1}${s.c1}${s.c2}${s.w2}`,          // misconception: the space char does nothing
+      `${s.w1}\n${s.c1}${s.c2}\n${s.w2}`,      // misconception: each cout is a new line
+      `${s.w1} ${s.c1} ${s.c2} ${s.w2}`,       // misconception: a space between the two chars too
+    ],
+    correctIndex: 0,
+  };
+}
+
 // Reads a value, changes it, then prints — the result is NOT what was typed.
 function genCinModify() {
   const v = pick(["var", "a", "x", "n"]);
@@ -327,7 +458,12 @@ function genCinChainedSum() {
   const a = rand(1, 50);
   const b = rand(1, 50);
   const sum = a + b;
-  const distractors = new Set([String(a * b), String(Math.abs(a - b))]);
+  const distractors = new Set();
+  // a*b and |a-b| can coincide with the sum (e.g. 2 and 2 -> 4 == 4), so only
+  // keep them when they differ from the correct answer.
+  for (const cand of [a * b, Math.abs(a - b)]) {
+    if (cand !== sum) distractors.add(String(cand));
+  }
   for (const o of offsets(sum, 6)) {
     if (o > 0 && o !== sum) distractors.add(String(o));
     if (distractors.size >= 3) break;
@@ -2429,6 +2565,16 @@ const STATIC_QUESTIONS = [
   { type: "theory", prompt: "Which operator is used with `cin` to read data from the keyboard?",
     options: ["`>>`", "`<<`", "`->`", "`=`"], correctIndex: 0 },
 
+  { type: "theory", prompt: "What does `cout << \"4\";` print?",
+    options: ["`4`", "`\"4\"` — with the quotes", "Nothing", "An error"], correctIndex: 0 },
+  { type: "theory", prompt: "Is there any difference in the OUTPUT of `cout << 4;` and `cout << \"4\";`?",
+    options: [
+      "No — both print 4 (one is a number, the other is text)",
+      "Yes — `\"4\"` prints with the quotes shown",
+      "Yes — `4` prints nothing",
+      "Yes — `\"4\"` causes a compile error",
+    ], correctIndex: 0 },
+
   // -- Theory: Operators ----------------------------------------------------
   { type: "theory", prompt: "How do you write an \"is equal to\" comparison in C++?",
     options: [
@@ -2693,6 +2839,10 @@ const SOURCES = [
   { weight: 18, fn: genCinChainedSum },
   { weight: 16, fn: genPromptedInput },
   { weight: 18, fn: genCoutConcatNumbers },
+  { weight: 18, fn: genTwoVarPickOne },
+  { weight: 18, fn: genTwoVarConcat },
+  { weight: 15, fn: genCoutEndlOnly },
+  { weight: 15, fn: genCharStringConcat },
   { weight: 20, fn: genPrecedence },
   { weight: 18, fn: genIntDivision },
   { weight: 18, fn: genModulo },
