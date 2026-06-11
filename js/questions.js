@@ -687,6 +687,114 @@ int main() {
   };
 }
 
+// A literal 'if (true)' / 'if (false)' guarding one line, with another line
+// after the block. Teaches that the block runs always / never.
+function genIfConstant() {
+  const v = pick(["v", "x", "n", "a"]);
+  const n = rand(1, 99);
+  const cond = pick([true, false]);
+  const tail = pick(["END", "DONE", "FINISHED", "BYE"]);
+  const options = cond
+    ? [`${n}\n${tail}`, `${tail}`, `${n}`, `${n}\n${n}\n${tail}`]
+    : [`${tail}`, `${n}\n${tail}`, `${n}`, "Nothing is printed"];
+  return {
+    type: "output",
+    prompt: `What does this program print if the user enters ${n}?`,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v};
+    cin >> ${v};
+
+    if (${cond}) {
+        cout << ${v} << endl;
+    }
+
+    cout << "${tail}" << endl;
+}`,
+    options,
+    correctIndex: 0,
+  };
+}
+
+// if (v >= lo && v <= hi) ... else ... — a two-way range check on input.
+function genIfElseRange() {
+  const v = pick(["v", "x", "n"]);
+  const ranges = [[0, 255], [0, 9], [1, 100], [10, 99], [0, 127]];
+  const [lo, hi] = pick(ranges);
+  const inMsg = `The value is between ${lo} and ${hi}`;
+  const outMsg = `The value is NOT between ${lo} and ${hi}`;
+  const inRange = Math.random() < 0.5;
+  const n = inRange ? rand(lo, hi) : hi + rand(1, 50);
+  const correct = inRange ? inMsg : outMsg;
+  return {
+    type: "output",
+    prompt: `What does this program print if the user enters ${n}?`,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v};
+    cin >> ${v};
+
+    if (${v} >= ${lo} && ${v} <= ${hi}) {
+        cout << "${inMsg}" << endl;
+    } else {
+        cout << "${outMsg}" << endl;
+    }
+}`,
+    options: [
+      correct,
+      inRange ? outMsg : inMsg,        // the other branch
+      "Nothing is printed",            // thinks neither branch runs
+      "Both messages are printed",     // thinks if and else both run
+    ],
+    correctIndex: 0,
+  };
+}
+
+// An if / else-if / else chain bucketing the input into ranges of ten.
+function genElseIfChain() {
+  const v = pick(["v", "x", "n"]);
+  const messages = [
+    "Between 0 and 9",
+    "Between 10 and 19",
+    "Between 20 and 29",
+    "Not in the range [0, 29]",
+  ];
+  const n = rand(0, 39); // 0..29 hit a bucket; 30..39 fall through to else
+  const idx = n <= 9 ? 0 : n <= 19 ? 1 : n <= 29 ? 2 : 3;
+  const correct = messages[idx];
+  return {
+    type: "output",
+    prompt: `What does this program print if the user enters ${n}?`,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v};
+    cin >> ${v};
+
+    if (${v} >= 0 && ${v} <= 9) {
+        cout << "Between 0 and 9" << endl;
+    } else if (${v} >= 10 && ${v} <= 19) {
+        cout << "Between 10 and 19" << endl;
+    } else if (${v} >= 20 && ${v} <= 29) {
+        cout << "Between 20 and 29" << endl;
+    } else {
+        cout << "Not in the range [0, 29]" << endl;
+    }
+}`,
+    // Exactly the four possible outputs; the correct one leads.
+    options: [correct, ...messages.filter((m) => m !== correct)],
+    correctIndex: 0,
+  };
+}
+
 function genWhileLoopSum() {
   const n = pick([5, 6, 7, 8, 9, 10]);
   let sum = 0;
@@ -2529,6 +2637,9 @@ const SOURCES = [
   { weight: 15, fn: genForLoopConcat },
   { weight: 18, fn: genArrayIndex },
   { weight: 15, fn: genIfElseOutput },
+  { weight: 16, fn: genIfConstant },
+  { weight: 18, fn: genIfElseRange },
+  { weight: 18, fn: genElseIfChain },
   { weight: 15, fn: genWhileLoopSum },
   { weight: 12, fn: genCharOutput },
 
