@@ -256,6 +256,136 @@ int main() {
   };
 }
 
+// Several values streamed to cout on one line, with no spaces between them.
+// e.g. cout << var << var;  ->  "44"   |   cout << var << 0 << var;  ->  "404"
+function genCoutConcatNumbers() {
+  const v = pick(["var", "a", "x", "n"]);
+  const val = rand(1, 9); // single digit keeps the concatenation obvious
+  const shapes = [
+    { expr: `${v} << ${v}`,        out: `${val}${val}`,      spaced: `${val} ${val}`,      sum: val + val },
+    { expr: `${v} << 0 << ${v}`,   out: `${val}0${val}`,     spaced: `${val} 0 ${val}`,    sum: val + 0 + val },
+    { expr: `${v} << ${v} << ${v}`, out: `${val}${val}${val}`, spaced: `${val} ${val} ${val}`, sum: val * 3 },
+  ];
+  const s = pick(shapes);
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = ${val};
+    cout << ${s.expr} << endl;
+}`,
+    options: [
+      s.out,            // correct — values printed back-to-back, no separators
+      String(s.sum),    // misconception: '<<' adds the numbers
+      s.spaced,         // misconception: spaces between them
+      String(val),      // misconception: printed only once
+    ],
+    correctIndex: 0,
+  };
+}
+
+// Reads a value, changes it, then prints — the result is NOT what was typed.
+function genCinModify() {
+  const v = pick(["var", "a", "x", "n"]);
+  const entered = rand(1, 50);
+  const op = pick(["+", "-", "*"]);
+  const k = op === "*" ? rand(2, 5) : rand(1, 9);
+  const result = op === "+" ? entered + k : op === "-" ? entered - k : entered * k;
+  // Distractors: the entered value (didn't apply the op), plus near-misses.
+  const distractors = new Set([String(entered)]);
+  for (const o of offsets(result, 6)) {
+    if (o !== result && String(o) !== String(entered)) distractors.add(String(o));
+    if (distractors.size >= 3) break;
+  }
+  for (let d = 1; distractors.size < 3; d++) {
+    if (result + d !== entered) distractors.add(String(result + d));
+  }
+  return {
+    type: "output",
+    prompt: `What does this program print if the user enters ${entered}?`,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v};
+    cin >> ${v};
+    ${v} = ${v} ${op} ${k};
+    cout << ${v} << endl;
+}`,
+    options: [String(result), ...Array.from(distractors).slice(0, 3)],
+    correctIndex: 0,
+  };
+}
+
+// Two values read with a single chained 'cin >> a >> b', then summed.
+function genCinChainedSum() {
+  const [v1, v2, sumV] = pick([["a", "b", "s"], ["x", "y", "sum"], ["var0", "var1", "s"]]);
+  const a = rand(1, 50);
+  const b = rand(1, 50);
+  const sum = a + b;
+  const distractors = new Set([String(a * b), String(Math.abs(a - b))]);
+  for (const o of offsets(sum, 6)) {
+    if (o > 0 && o !== sum) distractors.add(String(o));
+    if (distractors.size >= 3) break;
+  }
+  for (let k = 1; distractors.size < 3; k++) distractors.add(String(sum + k));
+  return {
+    type: "output",
+    prompt: `What does this program print if the user enters ${a} and ${b}?`,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v1};
+    int ${v2};
+    cin >> ${v1} >> ${v2};
+
+    int ${sumV} = ${v1} + ${v2};
+    cout << ${sumV} << endl;
+}`,
+    options: [String(sum), ...Array.from(distractors).slice(0, 3)],
+    correctIndex: 0,
+  };
+}
+
+// A printed prompt (a string variable), then input, then a labelled result.
+function genPromptedInput() {
+  const entered = rand(1, 99);
+  const cases = [
+    { prompt: "Enter your age: ", label: "Your age is ", noun: "age" },
+    { prompt: "Enter a number: ", label: "You typed ",   noun: "n" },
+    { prompt: "How many lives? ", label: "Lives left: ", noun: "lives" },
+  ];
+  const c = pick(cases);
+  return {
+    type: "output",
+    prompt: `What does this program print if the user enters ${entered}?`,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    string prompt = "${c.prompt}";
+    int ${c.noun};
+    cout << prompt;
+    cin >> ${c.noun};
+    cout << "${c.label}" << ${c.noun} << endl;
+}`,
+    options: [
+      `${c.prompt}${c.label}${entered}`, // correct — prompt has no endl, so it sits on the same line
+      `${c.label}${entered}`,            // misconception: the prompt isn't printed
+      `${c.prompt}${entered}`,           // misconception: the label isn't printed
+      `${c.prompt}${c.label}${c.noun}`,  // misconception: prints the variable name
+    ],
+    correctIndex: 0,
+  };
+}
+
 function genPrecedence() {
   const a = rand(2, 9);
   const b = rand(2, 9);
@@ -1555,6 +1685,85 @@ function genNamespaceOutput() {
   };
 }
 
+// Two namespaces declaring the SAME name; both are `using`-ed, so the bare
+// name is ambiguous and the code reaches each one with the '::' scope operator.
+function genTwoNamespaceQualified() {
+  const [nsA, nsB] = pick([["A", "B"], ["First", "Second"], ["Config", "Game"], ["Math", "Phys"]]);
+  const name = pick(["a", "x", "val", "n"]);
+  const VALUES = [4, 8, 16, 44, 64, 100, 128, 256, 1234];
+  const va = pick(VALUES);
+  let vb = pick(VALUES);
+  while (vb === va) vb = pick(VALUES);
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+namespace ${nsA} {
+    int ${name} = ${va};
+}
+
+namespace ${nsB} {
+    int ${name} = ${vb};
+}
+
+using namespace ${nsA};
+using namespace ${nsB};
+
+int main() {
+    cout << ${nsA}::${name} << endl;
+    cout << ${nsB}::${name} << endl;
+}`,
+    options: [
+      `${va}\n${vb}`,                                                  // correct
+      `${vb}\n${va}`,                                                  // reversed
+      `${va}\n${va}`,                                                  // same value twice
+      `Nothing — '${name}' is ambiguous, the program does not compile`, // the '::' resolves it
+    ],
+    correctIndex: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  DATA TYPES  (💡 theory — sizes in bytes/bits, and which type fits a value)
+// ---------------------------------------------------------------------------
+const TYPE_SIZE_FACTS = [
+  { prompt: "How many bytes does an 'int' usually take?", correct: "4", distractors: ["1", "2", "8"] },
+  { prompt: "How many bits are in one byte?", correct: "8", distractors: ["4", "16", "32"] },
+  { prompt: "How many bits does a 4-byte 'int' have?", correct: "32", distractors: ["4", "8", "16"] },
+  { prompt: "How many bytes does a 'char' take?", correct: "1", distractors: ["2", "4", "8"] },
+  { prompt: "How many bits does a 'char' have?", correct: "8", distractors: ["1", "16", "32"] },
+  { prompt: "How many bytes does a 'bool' take?", correct: "1", distractors: ["0", "4", "8"] },
+];
+function genTypeSize() {
+  const f = pick(TYPE_SIZE_FACTS);
+  return {
+    type: "theory",
+    prompt: f.prompt,
+    options: [f.correct, ...f.distractors],
+    correctIndex: 0,
+  };
+}
+
+const TYPE_CHOICE_FACTS = [
+  { prompt: "Which type best stores a whole number like 144?", correct: "int", distractors: ["char", "string", "bool"] },
+  { prompt: "Which type best stores a single character like 'A'?", correct: "char", distractors: ["int", "string", "bool"] },
+  { prompt: 'Which type best stores text like "Hello"?', correct: "string", distractors: ["char", "int", "bool"] },
+  { prompt: "Which type best stores a true/false value?", correct: "bool", distractors: ["int", "char", "string"] },
+  { prompt: "What type is the value 'A' (in single quotes)?", correct: "char", distractors: ["string", "int", "bool"] },
+  { prompt: 'What type is the value "A" (in double quotes)?', correct: "string", distractors: ["char", "int", "bool"] },
+];
+function genTypeForValue() {
+  const f = pick(TYPE_CHOICE_FACTS);
+  return {
+    type: "theory",
+    prompt: f.prompt,
+    options: [f.correct, ...f.distractors],
+    correctIndex: 0,
+  };
+}
+
 // ---------------------------------------------------------------------------
 //  POWERS OF TWO  (💡 theory — 2^n, and how many values fit in n bits)
 // ---------------------------------------------------------------------------
@@ -2306,6 +2515,10 @@ const SOURCES = [
   { weight: 25, fn: genVariableArithThirdVar },
   { weight: 20, fn: genCinEcho },
   { weight: 20, fn: genCinArithMultiline },
+  { weight: 18, fn: genCinModify },
+  { weight: 18, fn: genCinChainedSum },
+  { weight: 16, fn: genPromptedInput },
+  { weight: 18, fn: genCoutConcatNumbers },
   { weight: 20, fn: genPrecedence },
   { weight: 18, fn: genIntDivision },
   { weight: 18, fn: genModulo },
@@ -2387,6 +2600,11 @@ const SOURCES = [
   { weight: 18, fn: genScopeSiblingBlocks },
   { weight: 18, fn: genScopeNestedBlocks },
   { weight: 16, fn: genNamespaceOutput },
+  { weight: 14, fn: genTwoNamespaceQualified },
+
+  // ---- Data types (theory) ----
+  { weight: 18, fn: genTypeSize },
+  { weight: 18, fn: genTypeForValue },
 
   // ---- Powers of two (theory) ----
   { weight: 18, fn: genPowerOfTwo },
