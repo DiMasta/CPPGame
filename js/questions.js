@@ -638,26 +638,6 @@ int main() {
   };
 }
 
-function genUninitVar() {
-  const v = pick(["x", "n", "value", "result"]);
-  return {
-    type: "mistake",
-    code:
-`#include <iostream>
-using namespace std;
-
-int main() {
-    int ${v};
-    cout << ${v} * 2 << endl;
-}`,
-    options: [
-      `'${v}' is used before being initialized`,
-      ...pickN(COMMON_MISTAKE_DISTRACTORS, 3),
-    ],
-    correctIndex: 0,
-  };
-}
-
 // ---------------------------------------------------------------------------
 //  BEHAVIOR GENERATORS  (🤔 "What does this program do?")
 // ---------------------------------------------------------------------------
@@ -1621,7 +1601,6 @@ const SOURCES = [
   { weight: 40, fn: genCinMistake },
   { weight: 30, fn: genMissingInclude },
   { weight: 50, fn: genOutOfBounds },
-  { weight: 40, fn: genUninitVar },
 
   // ---- Behavior ----
   { weight: 40, fn: genBehaviorSum },
