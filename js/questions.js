@@ -2356,6 +2356,89 @@ int main() {
   };
 }
 
+// while (true) { ... } — an infinite loop. Asks what the program DOES.
+function genWhileTrueInfinite() {
+  const shapes = [
+    () => {
+      const n = rand(1, 9);
+      return {
+        body: `        cout << ${n} << endl;`,
+        desc: `Prints ${n} on its own line over and over forever (infinite loop)`,
+        once: `Prints ${n} once and then stops`,
+      };
+    },
+    () => {
+      const n = rand(1, 8);
+      const m = n + 1;
+      return {
+        body: `        cout << ${n} << endl;\n        cout << ${m} << endl;`,
+        desc: `Prints ${n} then ${m}, over and over forever (infinite loop)`,
+        once: `Prints ${n} then ${m} once and then stops`,
+      };
+    },
+    () => {
+      const n = rand(1, 9);
+      return {
+        body: `        cout << ${n};`,
+        desc: `Prints ${n} over and over forever with no new lines (infinite loop)`,
+        once: `Prints ${n} once and then stops`,
+      };
+    },
+  ];
+  const s = pick(shapes)();
+  return {
+    type: "behavior",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    while (true) {
+${s.body}
+    }
+}`,
+    options: [s.desc, s.once, "Prints nothing at all", "Does not compile"],
+    correctIndex: 0,
+  };
+}
+
+// int i = start; while (i < limit) { print i; ++i; } — a finite counting loop.
+// Asks for the last number printed, or how many numbers are printed.
+function genWhileCountRange() {
+  const v = pick(["i", "n", "x"]);
+  const start = pick([0, 0, 0, 1, 5, 10]);
+  const size = pick([5, 10, 20, 50, 100, 256]);
+  const limit = start + size;
+  const askLast = Math.random() < 0.5;
+  const correct = askLast ? limit - 1 : size;
+  const traps = askLast ? [limit, start, limit - 2] : [limit, size + 1, size - 1];
+  const distractors = new Set();
+  for (const t of traps) {
+    if (t !== correct && t >= 0) distractors.add(String(t));
+    if (distractors.size >= 3) break;
+  }
+  for (let k = 1; distractors.size < 3; k++) distractors.add(String(correct + k));
+  return {
+    type: "behavior",
+    prompt: askLast
+      ? "What is the LAST number this program prints?"
+      : "How many numbers does this program print?",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = ${start};
+    while (${v} < ${limit}) {
+        cout << ${v} << endl;
+        ++${v};
+    }
+}`,
+    options: [String(correct), ...Array.from(distractors).slice(0, 3)],
+    correctIndex: 0,
+  };
+}
+
 function genMultiplicationTable() {
   const k = rand(2, 9);
   const count = pick([3, 4, 5]);
@@ -2882,6 +2965,8 @@ const SOURCES = [
   // ---- Output: loop variations (while / for) ----
   { weight: 15, fn: genWhileCountdown },
   { weight: 15, fn: genForStep },
+  { weight: 16, fn: genWhileTrueInfinite },
+  { weight: 16, fn: genWhileCountRange },
   { weight: 15, fn: genMultiplicationTable },
 
   // ---- Output: arrays & functions ----
