@@ -765,6 +765,186 @@ int main() {
   };
 }
 
+// 'cout << a < endl' — a single '<' where '<<' is needed.
+function genSingleAngleMistake() {
+  const v = pick(["a", "x", "n", "value", "count"]);
+  const n = rand(1, 99);
+  return {
+    type: "mistake",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = ${n};
+    cout << ${v} < endl;
+}`,
+    options: [
+      `'${v} < endl' should be '${v} << endl' — it needs '<<', not '<'`,
+      ...pickN(COMMON_MISTAKE_DISTRACTORS, 3),
+    ],
+    correctIndex: 0,
+  };
+}
+
+// '#include <iostrem>' — the header name is misspelled.
+function genMisspelledHeader() {
+  const v = pick(["a", "x", "n"]);
+  const n = rand(1, 99);
+  const typo = pick(["iostrem", "iostreem", "iostraem", "isotream", "iostram", "iostreams"]);
+  return {
+    type: "mistake",
+    code:
+`#include <${typo}>
+using namespace std;
+
+int main() {
+    int ${v} = ${n};
+    cout << ${v} << endl;
+}`,
+    options: [
+      `'iostream' is misspelled — it says '${typo}'`,
+      ...pickN(COMMON_MISTAKE_DISTRACTORS, 3),
+    ],
+    correctIndex: 0,
+  };
+}
+
+// Declares one variable but prints a different, undeclared one.
+function genUndeclaredVar() {
+  const [declared, used] = pick([
+    ["a", "b"], ["x", "y"], ["n", "m"], ["a", "x"], ["count", "total"],
+  ]);
+  const n = rand(1, 99);
+  return {
+    type: "mistake",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${declared} = ${n};
+    cout << ${used} << endl;
+}`,
+    options: [
+      `'${used}' is used but never declared`,
+      ...pickN(COMMON_MISTAKE_DISTRACTORS, 3),
+    ],
+    correctIndex: 0,
+  };
+}
+
+// 'using namespace sdt;' — 'std' is misspelled.
+function genMisspelledStd() {
+  const v = pick(["a", "x", "n"]);
+  const n = rand(1, 99);
+  const typo = pick(["sdt", "stb", "sdd", "tsd", "sdtd"]);
+  // Drop the "'using namespace std;' is missing" distractor — too close to the
+  // real (misspelling) answer to be cleanly wrong.
+  const distractors = pickN(
+    COMMON_MISTAKE_DISTRACTORS.filter((d) => d !== "'using namespace std;' is missing"),
+    3
+  );
+  return {
+    type: "mistake",
+    code:
+`#include <iostream>
+using namespace ${typo};
+
+int main() {
+    int ${v} = ${n};
+    cout << ${v} << endl;
+}`,
+    options: [`'std' is misspelled — it says '${typo}'`, ...distractors],
+    correctIndex: 0,
+  };
+}
+
+// 'int a = "50";' — assigning a quoted string to an int.
+function genStringToIntMistake() {
+  const v = pick(["a", "x", "n", "value"]);
+  const n = rand(1, 99);
+  return {
+    type: "mistake",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = "${n}";
+    cout << ${v} << endl;
+}`,
+    options: [
+      `cannot assign the text "${n}" to an int — drop the quotes`,
+      ...pickN(COMMON_MISTAKE_DISTRACTORS, 3),
+    ],
+    correctIndex: 0,
+  };
+}
+
+// 'int a 50;' — the '=' is missing from the declaration.
+function genMissingAssignMistake() {
+  const v = pick(["a", "x", "n", "value"]);
+  const n = rand(1, 99);
+  return {
+    type: "mistake",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} ${n};
+    cout << ${v} << endl;
+}`,
+    options: [
+      `'=' is missing — it should be 'int ${v} = ${n};'`,
+      ...pickN(COMMON_MISTAKE_DISTRACTORS, 3),
+    ],
+    correctIndex: 0,
+  };
+}
+
+// A perfectly valid program — the correct answer is "There is no mistake".
+// Teaches students not to invent a bug under pressure.
+function genNoMistakeTrap() {
+  const v = pick(["a", "x", "n", "value", "count"]);
+  const n = rand(1, 99);
+  const shapes = [
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = ${n};
+    cout << ${v} << endl;
+}`,
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v};
+    cin >> ${v};
+    cout << ${v} << endl;
+}`,
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = ${n};
+    cout << ${v} * 2 << endl;
+}`,
+  ];
+  const distractors = pickN(
+    COMMON_MISTAKE_DISTRACTORS.filter((d) => d !== "There is no mistake"),
+    3
+  );
+  return {
+    type: "mistake",
+    code: pick(shapes),
+    options: ["There is no mistake", ...distractors],
+    correctIndex: 0,
+  };
+}
+
 // The same variable declared twice — a guaranteed compile error.
 function genRedeclareMistake() {
   const v = pick(["a", "x", "n", "value", "score"]);
@@ -2063,6 +2243,13 @@ const SOURCES = [
   { weight: 30, fn: genMissingInclude },
   { weight: 50, fn: genOutOfBounds },
   { weight: 40, fn: genRedeclareMistake },
+  { weight: 30, fn: genSingleAngleMistake },
+  { weight: 30, fn: genMisspelledHeader },
+  { weight: 30, fn: genUndeclaredVar },
+  { weight: 30, fn: genMisspelledStd },
+  { weight: 30, fn: genStringToIntMistake },
+  { weight: 30, fn: genMissingAssignMistake },
+  { weight: 18, fn: genNoMistakeTrap },
 
   // ---- Behavior ----
   { weight: 40, fn: genBehaviorSum },
