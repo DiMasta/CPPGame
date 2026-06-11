@@ -161,6 +161,101 @@ int main() {
   };
 }
 
+// Reads one number and echoes it. The input value is given in the prompt.
+function genCinEcho() {
+  const v = pick(["a", "x", "n", "num", "value"]);
+  const n = rand(1, 99);
+  return {
+    type: "output",
+    prompt: `What does this program print if the user enters ${n}?`,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v};
+    cin >> ${v};
+    cout << ${v} << endl;
+}`,
+    // Name trap ("it prints the variable's name") + numeric near-misses.
+    options: [String(n), v, ...offsets(n, 2).map(String)],
+    correctIndex: 0,
+  };
+}
+
+// Like genVariableArith, but the result flows through a third variable first.
+function genVariableArithThirdVar() {
+  const [v1, v2, v3] = pick([["a", "b", "c"], ["x", "y", "z"], ["p", "q", "r"], ["m", "n", "k"]]);
+  const op = pick(["+", "-", "*"]);
+  const a = rand(2, 50);
+  const b = rand(2, 50);
+  const correct = op === "+" ? a + b : op === "-" ? a - b : a * b;
+  // One distractor is the "wrong operation" result when it differs.
+  const wrongOp = op === "+" ? a - b : op === "-" ? a + b : a + b;
+  const distractors = new Set();
+  if (wrongOp !== correct) distractors.add(wrongOp);
+  for (const o of offsets(correct, 6)) {
+    if (o !== correct && !distractors.has(o)) distractors.add(o);
+    if (distractors.size >= 3) break;
+  }
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v1} = ${a};
+    int ${v2} = ${b};
+    int ${v3} = ${v1} ${op} ${v2};
+
+    cout << ${v3} << endl;
+}`,
+    options: [String(correct), ...Array.from(distractors).slice(0, 3).map(String)],
+    correctIndex: 0,
+  };
+}
+
+// Reads two numbers, computes their sum and difference, prints all four
+// values on separate lines. Multi-line answer options.
+function genCinArithMultiline() {
+  const [v1, v2, v3, v4] = pick([["a", "b", "c", "d"], ["x", "y", "s", "d"], ["p", "q", "r", "t"]]);
+  const a = rand(3, 20);
+  const b = rand(1, a - 1); // keep the difference positive
+  const sum = a + b;
+  const diff = a - b;
+  return {
+    type: "output",
+    prompt: `What does this program print if the user enters ${a} and ${b}?`,
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v1};
+    int ${v2};
+
+    cin >> ${v1};
+    cin >> ${v2};
+
+    int ${v3} = ${v1} + ${v2};
+    int ${v4} = ${v1} - ${v2};
+
+    cout << ${v1} << endl;
+    cout << ${v2} << endl;
+    cout << ${v3} << endl;
+    cout << ${v4} << endl;
+}`,
+    options: [
+      `${a}\n${b}\n${sum}\n${diff}`,          // correct
+      `${a}\n${b}\n${diff}\n${sum}`,          // sum and difference swapped
+      `${v1}\n${v2}\n${v3}\n${v4}`,           // misconception: prints the names
+      `${a} ${b} ${sum} ${diff}`,             // misconception: all on one line
+    ],
+    correctIndex: 0,
+  };
+}
+
 function genPrecedence() {
   const a = rand(2, 9);
   const b = rand(2, 9);
@@ -670,6 +765,34 @@ int main() {
   };
 }
 
+// The same variable declared twice — a guaranteed compile error.
+function genRedeclareMistake() {
+  const v = pick(["a", "x", "n", "value", "score"]);
+  const n1 = rand(2, 15);
+  let n2 = rand(2, 15);
+  if (n2 === n1) n2 = n1 + 1;
+  // Half the time use binary literals (ties into the binary lessons).
+  const binary = Math.random() < 0.5;
+  const lit = (n) => (binary ? `0b${n.toString(2).padStart(4, "0")}` : String(n));
+  return {
+    type: "mistake",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = ${lit(n1)};
+    int ${v} = ${lit(n2)};
+    cout << ${v} << endl;
+}`,
+    options: [
+      `'${v}' is declared twice`,
+      ...pickN(COMMON_MISTAKE_DISTRACTORS, 3),
+    ],
+    correctIndex: 0,
+  };
+}
+
 // ---------------------------------------------------------------------------
 //  BEHAVIOR GENERATORS  (🤔 "What does this program do?")
 // ---------------------------------------------------------------------------
@@ -961,6 +1084,36 @@ int main() {
 // ---------------------------------------------------------------------------
 //  BINARY  (💡 theory — beginner conversions, small numbers 2..15)
 // ---------------------------------------------------------------------------
+// A 0b binary literal assigned to an int prints as decimal.
+function genBinaryLiteralOutput() {
+  const v = pick(["a", "x", "n", "value"]);
+  const n = rand(2, 15);
+  const bits = n.toString(2).padStart(4, "0");
+  const distractors = new Set();
+  distractors.add(bits);            // misconception: prints the binary digits
+  for (const o of offsets(n, 6)) {
+    if (o > 0 && String(o) !== bits) distractors.add(String(o));
+    if (distractors.size >= 3) break;
+  }
+  // offsets() can yield mostly non-positive candidates for small n; top up.
+  for (let k = 1; distractors.size < 3; k++) {
+    distractors.add(String(n + k));
+  }
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int ${v} = 0b${bits};
+    cout << ${v} << endl;
+}`,
+    options: [String(n), ...Array.from(distractors).slice(0, 3)],
+    correctIndex: 0,
+  };
+}
+
 function genDecimalToBinary() {
   const n = rand(2, 15);
   const correct = n.toString(2);
@@ -1583,6 +1736,9 @@ const SOURCES = [
   { weight: 20, fn: genSingleNumber },
   { weight: 30, fn: genSimpleArithmetic },
   { weight: 30, fn: genVariableArith },
+  { weight: 25, fn: genVariableArithThirdVar },
+  { weight: 20, fn: genCinEcho },
+  { weight: 20, fn: genCinArithMultiline },
   { weight: 20, fn: genPrecedence },
   { weight: 18, fn: genIntDivision },
   { weight: 18, fn: genModulo },
@@ -1634,6 +1790,7 @@ const SOURCES = [
   { weight: 40, fn: genCinMistake },
   { weight: 30, fn: genMissingInclude },
   { weight: 50, fn: genOutOfBounds },
+  { weight: 40, fn: genRedeclareMistake },
 
   // ---- Behavior ----
   { weight: 40, fn: genBehaviorSum },
@@ -1647,6 +1804,7 @@ const SOURCES = [
   // ---- Binary (theory generators) ----
   { weight: 18, fn: genDecimalToBinary },
   { weight: 18, fn: genBinaryToDecimal },
+  { weight: 18, fn: genBinaryLiteralOutput },
 
   // ---- Theory / static specials (incl. computer parts, game-loop theory) ----
   // Single source that uniformly picks from the static bank.
