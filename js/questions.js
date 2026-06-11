@@ -379,6 +379,76 @@ int main() {
   };
 }
 
+// Declares all six comparisons (>, <, >=, <=, ==, !=) into bools, then prints
+// one of them. Values are equal ~1 in 4 times so ==, <=, >= stay interesting.
+function genComparisonSet() {
+  const a = rand(1, 20);
+  const b = Math.random() < 0.25 ? a : (() => { let x = rand(1, 20); return x === a ? x + 1 : x; })();
+  const ops = [
+    { code: ">",  val: a >  b },
+    { code: "<",  val: a <  b },
+    { code: ">=", val: a >= b },
+    { code: "<=", val: a <= b },
+    { code: "==", val: a === b },
+    { code: "!=", val: a !== b },
+  ];
+  const idx = rand(0, ops.length - 1);
+  const lines = ops.map((o, i) => `    bool b${i} = a ${o.code} b;`).join("\n");
+  const correct = ops[idx].val ? "1" : "0";
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    int a = ${a};
+    int b = ${b};
+
+${lines}
+
+    cout << b${idx} << endl;
+}`,
+    // The 1/0 vs true/false pairing reinforces that cout prints a bool as 1/0.
+    options: [correct, correct === "1" ? "0" : "1", "true", "false"],
+    correctIndex: 0,
+  };
+}
+
+// Logical operators &&, ||, ! over two bools, printing one result as 1/0.
+function genLogicalOps() {
+  const t = Math.random() < 0.5;
+  const f = Math.random() < 0.5;
+  const exprs = [
+    { code: "t && f", val: t && f },
+    { code: "t || f", val: t || f },
+    { code: "!t",     val: !t },
+    { code: "!f",     val: !f },
+    { code: "t && !f", val: t && !f },
+    { code: "!t || f", val: !t || f },
+  ];
+  const idx = rand(0, exprs.length - 1);
+  const lines = exprs.map((e, i) => `    bool r${i} = ${e.code};`).join("\n");
+  const correct = exprs[idx].val ? "1" : "0";
+  return {
+    type: "output",
+    code:
+`#include <iostream>
+using namespace std;
+
+int main() {
+    bool t = ${t};
+    bool f = ${f};
+
+${lines}
+
+    cout << r${idx} << endl;
+}`,
+    options: [correct, correct === "1" ? "0" : "1", "true", "false"],
+    correctIndex: 0,
+  };
+}
+
 function genForLoopSum() {
   const start = rand(1, 3);
   const end = rand(start + 2, start + 7);
@@ -1440,6 +1510,51 @@ int main() {
   };
 }
 
+// A custom namespace, accessed either via `using namespace` or qualified with
+// `::`. Values lean on powers of two to tie into the binary lessons.
+function genNamespaceOutput() {
+  const ns = pick(["myNameSpace", "Config", "Game", "Settings", "App", "Level"]);
+  const [v0, v1] = pick([
+    ["myVar0", "myVar1"], ["width", "height"], ["x", "y"], ["min", "max"], ["score", "level"],
+  ]);
+  const VALUES = [4, 8, 16, 32, 64, 128, 256, 512, 1024, 7, 42, 100];
+  const a = pick(VALUES);
+  let b = pick(VALUES);
+  while (b === a) b = pick(VALUES);
+  const printSecond = Math.random() < 0.5;
+  const target = printSecond ? v1 : v0;
+  const targetVal = printSecond ? b : a;
+  const otherVal = printSecond ? a : b;
+  const qualified = Math.random() < 0.5;
+  const access = qualified ? `${ns}::${target}` : target;
+
+  const parts = [
+    "#include <iostream>",
+    "using namespace std;",
+    "",
+    `namespace ${ns} {`,
+    `    int ${v0} = ${a};`,
+    `    int ${v1} = ${b};`,
+    "}",
+    "",
+  ];
+  if (!qualified) parts.push(`using namespace ${ns};`, "");
+  parts.push("int main() {", `    cout << ${access} << endl;`, "}");
+
+  const distractors = new Set([String(otherVal)]);
+  for (const o of offsets(targetVal, 8)) {
+    if (o > 0 && o !== targetVal) distractors.add(String(o));
+    if (distractors.size >= 3) break;
+  }
+  for (let k = 1; distractors.size < 3; k++) distractors.add(String(targetVal + k));
+  return {
+    type: "output",
+    code: parts.join("\n"),
+    options: [String(targetVal), ...Array.from(distractors).slice(0, 3)],
+    correctIndex: 0,
+  };
+}
+
 // ---------------------------------------------------------------------------
 //  POWERS OF TWO  (💡 theory — 2^n, and how many values fit in n bits)
 // ---------------------------------------------------------------------------
@@ -2195,6 +2310,8 @@ const SOURCES = [
   { weight: 18, fn: genIntDivision },
   { weight: 18, fn: genModulo },
   { weight: 20, fn: genBoolCompare },
+  { weight: 20, fn: genComparisonSet },
+  { weight: 20, fn: genLogicalOps },
   { weight: 15, fn: genForLoopSum },
   { weight: 15, fn: genForLoopConcat },
   { weight: 18, fn: genArrayIndex },
@@ -2269,6 +2386,7 @@ const SOURCES = [
   { weight: 18, fn: genScopeBlockOutput },
   { weight: 18, fn: genScopeSiblingBlocks },
   { weight: 18, fn: genScopeNestedBlocks },
+  { weight: 16, fn: genNamespaceOutput },
 
   // ---- Powers of two (theory) ----
   { weight: 18, fn: genPowerOfTwo },
